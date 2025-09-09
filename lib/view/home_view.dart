@@ -87,7 +87,7 @@ class HomeView extends StatelessWidget {
       ];
 
       return WillPopScope(
-        onWillPop: () async => false, // Prevent back navigation
+        onWillPop: () async => true, // Prevent back navigation
         child: Scaffold(
           appBar: AppBar(
             backgroundColor: Colors.blue,

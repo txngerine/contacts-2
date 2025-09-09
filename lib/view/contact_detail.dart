@@ -372,7 +372,6 @@ class _ContactDetailViewState extends State<ContactDetailView> {
                       onTap: () => OppoFixLauncher.launchPhone(line),
                     ),
                   )),
-
             /// Email (Admins only)
             if (isAdmin) ...[
               _buildOptionalCard(
@@ -393,6 +392,25 @@ class _ContactDetailViewState extends State<ContactDetailView> {
                       ),
                     )),
             ],
+            /// Email
+            _buildOptionalCard(
+              icon: Icons.email,
+              label: 'Email',
+              value: contact.email,
+              onTap: () => OppoFixLauncher.launchEmail(contact.email),
+              color: Colors.red,
+            ),
+
+            if (contact.emailAddresses != null)
+              ...contact.emailAddresses!.map((email) => Card(
+                    elevation: 4,
+                    margin: EdgeInsets.symmetric(vertical: 4),
+                    child: ListTile(
+                      leading: Icon(Icons.email, color: Colors.red),
+                      title: Text(email),
+                      onTap: () => OppoFixLauncher.launchEmail(email),
+                    ),
+                  )),
 
             /// WhatsApp
             if (contact.whatsapp != null && contact.whatsapp!.isNotEmpty)

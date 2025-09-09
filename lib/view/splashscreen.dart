@@ -23,7 +23,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   // Navigate to the appropriate screen after a delay
   void _navigateToNextScreen() async {
-    await Future.delayed(Duration(seconds: 5)); // Simulate loading
+    await Future.delayed(Duration(seconds: 7));
 
     try {
       // Check for internet connectivity

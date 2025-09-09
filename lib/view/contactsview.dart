@@ -127,10 +127,12 @@ class _ContactsViewState extends State<ContactsView> {
 
   void _deleteSelectedContacts() async {
     if (_selectedContacts.isEmpty) {
-      Get.snackbar('No Contacts Selected', 'Please select contacts to delete.',
-          snackPosition: SnackPosition.BOTTOM,
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please select contacts to delete.'),
           backgroundColor: Colors.red,
-          colorText: Colors.white);
+        ),
+      );
       return;
     }
 
@@ -158,19 +160,26 @@ class _ContactsViewState extends State<ContactsView> {
     );
 
     if (confirm == true) {
-      for (var contact in _selectedContacts) {
-        await controller.deleteContact(contact);
+      if (controller.isAdmin()) {
+        for (var contact in _selectedContacts) {
+          await controller.deleteContactFromFirebaseIfAdmin(contact);
+        }
+      } else {
+        for (var contact in _selectedContacts) {
+          await controller.deleteContact(contact);
+        }
       }
       setState(() {
         _selectedContacts.clear();
         _isSelectionMode = false;
       });
 
-      Get.snackbar('Contacts Deleted',
-          'Selected contacts have been deleted successfully.',
-          snackPosition: SnackPosition.BOTTOM,
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${_selectedContacts.length} contacts have been deleted successfully.'),
           backgroundColor: Colors.green,
-          colorText: Colors.white);
+        ),
+      );
     }
   }
 
@@ -254,397 +263,431 @@ class _ContactsViewState extends State<ContactsView> {
     double getFontSize(double base) => isSmallScreen ? base * 0.85 : base;
     double getIconSize(double base) => isSmallScreen ? base * 0.85 : base;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        toolbarHeight: isSmallScreen ? 56 : 70,
-        title: _isSelectionMode
-            ? SizedBox(
-                height: isSmallScreen ? 32 : 40,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${_selectedContacts.length}',
-                      style: TextStyle(
-                          color: Colors.black,
-                          fontSize: getFontSize(20)),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close, color: Colors.white),
-                      onPressed: () {
-                        setState(() {
-                          _selectedContacts.clear();
-                          _isSelectionMode = false;
-                        });
-                      },
-                      iconSize: getIconSize(18),
-                    ),
-                  ],
-                ),
-              )
-            : Container(
-                height: isSmallScreen ? 32 : 40,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 8 : 16),
-                child: TextField(
-                  onChanged: (val) => controller.searchQuery.value = val,
-                  decoration: InputDecoration(
-                    hintText: 'Search contacts...',
-                    border: InputBorder.none,
-                    icon: Icon(Icons.search, color: Colors.grey),
-                    hintStyle: TextStyle(color: Colors.grey),
+    return WillPopScope(
+      onWillPop: () async {
+        print('Back button pressed'); // Debug print
+        if (_isSelectionMode) {
+          setState(() {
+            _selectedContacts.clear();
+            _isSelectionMode = false;
+          });
+          return false; // Prevent navigation
+        }
+        return true; // Allow navigation
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          toolbarHeight: isSmallScreen ? 56 : 70,
+          title: _isSelectionMode
+              ? SizedBox(
+                  height: isSmallScreen ? 32 : 40,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${_selectedContacts.length}',
+                        style: TextStyle(
+                            color: Colors.black,
+                            fontSize: getFontSize(20)),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close, color: Colors.white),
+                        onPressed: () {
+                          setState(() {
+                            _selectedContacts.clear();
+                            _isSelectionMode = false;
+                          });
+                        },
+                        iconSize: getIconSize(18),
+                      ),
+                    ],
                   ),
-                  style: TextStyle(color: Colors.black, fontSize: getFontSize(16)),
+                )
+              : Container(
+                  height: isSmallScreen ? 32 : 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 8 : 16),
+                  child: TextField(
+                    onChanged: (val) => controller.searchQuery.value = val,
+                    decoration: InputDecoration(
+                      hintText: 'Search contacts...',
+                      border: InputBorder.none,
+                      icon: Icon(Icons.search, color: Colors.grey),
+                      hintStyle: TextStyle(color: Colors.grey),
+                    ),
+                    style: TextStyle(color: Colors.black, fontSize: getFontSize(16)),
+                  ),
                 ),
-              ),
-        backgroundColor: Colors.blue,
-        actions: [
-          if (_isSelectionMode) ...[
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: Icon(Icons.share, color: Colors.white),
-                  onPressed: _shareSelectedContacts,
-                  padding: EdgeInsets.symmetric(horizontal: 2),
-                  iconSize: getIconSize(18),
-                ),
-                IconButton(
-                  icon: Icon(Icons.delete, color: Colors.white),
-                  onPressed: _deleteSelectedContacts,
-                  padding: EdgeInsets.symmetric(horizontal: 2),
-                  iconSize: getIconSize(18),
-                ),
-                IconButton(
-                  icon: Icon(Icons.group, color: Colors.white),
-                  onPressed: _formGroup,
-                  padding: EdgeInsets.symmetric(horizontal: 2),
-                  iconSize: getIconSize(18),
-                ),
-                IconButton(
-                  icon: Icon(Icons.favorite, color: Colors.white),
-                  onPressed: _markSelectedAsFavorites,
-                  padding: EdgeInsets.symmetric(horizontal: 2),
-                  iconSize: getIconSize(18),
-                ),
-                IconButton(
-                  icon: Icon(Icons.message, color: Colors.white),
-                  onPressed: _messageSelectedContacts,
-                  padding: EdgeInsets.symmetric(horizontal: 2),
-                  iconSize: getIconSize(18),
-                ),
-                if (controller.isAdmin())
+          backgroundColor: Colors.blue,
+          actions: [
+            if (_isSelectionMode) ...[
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   IconButton(
-                    icon: Icon(Icons.sync, color: Colors.white),
-                    onPressed: () async {
-                      final contactsToSync = _selectedContacts
-                          .where((c) => c.isSynced == false)
-                          .toList();
-                      if (contactsToSync.isEmpty) {
-                        Get.snackbar('Already Synced',
-                            'All selected contacts are already synced.');
-                        return;
-                      }
-
-                      for (var contact in contactsToSync) {
-                        await controller.syncContactToFirestore(contact);
-                      }
-
-                      setState(() {
-                        _selectedContacts.clear();
-                        _isSelectionMode = false;
-                      });
-
-                      Get.snackbar('Sync Complete',
-                          'Selected contacts synced successfully.',
-                          snackPosition: SnackPosition.BOTTOM,
-                          backgroundColor: Colors.green,
-                          colorText: Colors.white);
-                    },
+                    icon: Icon(Icons.share, color: Colors.white),
+                    onPressed: _shareSelectedContacts,
                     padding: EdgeInsets.symmetric(horizontal: 2),
                     iconSize: getIconSize(18),
                   ),
-              ],
-            ),
-          ] else ...[
-            IconButton(
-              icon: Icon(Icons.select_all, color: Colors.white),
-              onPressed: () {
-                setState(() {
-                  _isSelectionMode = true;
-                  _selectedContacts.addAll(controller.filteredContacts);
-                });
-              },
-              iconSize: getIconSize(18),
-            ),
-          ],
-        ],
-      ),
-      body: RefreshIndicator(
-        color: Colors.blue,
-        onRefresh: _onRefresh,
-        child: Obx(() {
-          // Remove duplicates by phone number
-          final uniqueContacts = <String, Contact>{};
-          for (var contact in controller.filteredContacts) {
-            uniqueContacts[contact.id] = contact;
-          }
-          final filteredContacts = uniqueContacts.values.toList();
-
-          if (filteredContacts.isEmpty && _showNoContactsMessage) {
-            return ListView(
-              children: [
-                SizedBox(height: screenHeight * 0.25),
-                Center(
-                    child: Text("No contacts found",
-                        style: TextStyle(
-                            fontSize: getFontSize(18), color: Colors.grey))),
-              ],
-            );
-          }
-
-          if (filteredContacts.isEmpty) {
-            return ListView.builder(
-              itemCount: 8,
-              itemBuilder: (_, __) => Shimmer.fromColors(
-                baseColor: Colors.grey[300]!,
-                highlightColor: Colors.grey[100]!,
-                child: ListTile(
-                  leading: CircleAvatar(radius: getIconSize(20)),
-                  title: Container(height: getFontSize(10), color: Colors.white),
-                  subtitle: Container(height: getFontSize(10), color: Colors.white),
-                ),
-              ),
-            );
-          }
-
-          final Map<String, List<Contact>> groupedContacts = {};
-          for (var contact in filteredContacts) {
-            final char = contact.name[0];
-            final key =
-                RegExp(r'[A-Za-z]').hasMatch(char) ? char.toUpperCase() : char;
-            groupedContacts.putIfAbsent(key, () => []).add(contact);
-          }
-
-          final keys = groupedContacts.keys.toList()..sort();
-          final groups = keys.map((key) {
-            final groupList = List<Contact>.from(groupedContacts[key]!)
-              ..sort((a, b) => a.name.compareTo(b.name));
-            return AlphabetListViewItemGroup(
-              tag: key,
-              children: groupList.map((contact) {
-                final isSelected = _selectedContacts.contains(contact);
-                return GestureDetector(
-                  onTap: () {
-                    if (_isSelectionMode) {
-                      _toggleSelection(contact);
-                    } else {
-                      setState(() {
-                        _expandedContact = _expandedContact == contact ? null : contact;
-                      });
-                    }
-                  },
-                  onLongPress: () => _toggleSelection(contact),
-                  child: Container(
-                    color: isSelected
-                        ? Colors.blue.withOpacity(0.2)
-                        : Colors.transparent,
-                    child: Column(
-                      children: [
-                        ListTile(
-                          leading: CircleAvatar(
-                            radius: getIconSize(20),
-                            child: Text(contact.name[0].toUpperCase(),
-                                style: TextStyle(fontSize: getFontSize(18))),
-                          ),
-                          title: Row(
-                            children: [
-                              Flexible(
-                                child: Text(contact.name,
-                                    style: TextStyle(fontSize: getFontSize(16))),
-                              ),
-                              if (contact.ownerId == 'admin' &&
-                                  contact.isSynced == true) ...[
-                                SizedBox(width: 6),
-                                Icon(Icons.verified,
-                                    color: Colors.blue, size: getIconSize(14)),
-                              ],
-                            ],
-                          ),
-                          subtitle: Text(contact.phone,
-                              style: TextStyle(fontSize: getFontSize(14))),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: Icon(
-                                  contact.isFavorite
-                                      ? Icons.favorite
-                                      : Icons.favorite_border,
-                                  color: contact.isFavorite ? Colors.red : null,
-                                ),
-                                onPressed: () => controller.toggleFavorite(contact),
-                                iconSize: getIconSize(22),
-                              ),
-                            ],
+                  IconButton(
+                    icon: Icon(Icons.delete, color: Colors.white),
+                    onPressed: _deleteSelectedContacts,
+                    padding: EdgeInsets.symmetric(horizontal: 2),
+                    iconSize: getIconSize(18),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.group, color: Colors.white),
+                    onPressed: _formGroup,
+                    padding: EdgeInsets.symmetric(horizontal: 2),
+                    iconSize: getIconSize(18),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.favorite, color: Colors.white),
+                    onPressed: _markSelectedAsFavorites,
+                    padding: EdgeInsets.symmetric(horizontal: 2),
+                    iconSize: getIconSize(18),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.message, color: Colors.white),
+                    onPressed: _messageSelectedContacts,
+                    padding: EdgeInsets.symmetric(horizontal: 2),
+                    iconSize: getIconSize(18),
+                  ),
+                  if (controller.isAdmin() && _selectedContacts.isNotEmpty)
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4),
+                      child: ElevatedButton.icon(
+                        icon: Icon(Icons.cloud_upload, size: getIconSize(16)),
+                        label: Text(
+                          '',
+                          style: TextStyle(fontSize: getFontSize(12)),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
                           ),
                         ),
-                        if (_expandedContact == contact)
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: isSmallScreen ? 8 : 16,
-                                vertical: isSmallScreen ? 4 : 8),
-                            child: Column(
+                        onPressed: () async {
+                          final contactsToSync = _selectedContacts
+                              .where((c) => c.isSynced == false)
+                              .toList();
+                            if (contactsToSync.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                              content: Text('Selected contacts are already synced.'),
+                              backgroundColor: Colors.orange,
+                              ),
+                            );
+                            return;
+                            }
+
+                            int updatedCount = 0;
+                            for (var contact in contactsToSync) {
+                            await controller.syncContactToFirestore(contact);
+                            updatedCount++;
+                            }
+
+                            setState(() {
+                            _selectedContacts.clear();
+                            _isSelectionMode = false;
+                            });
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                              updatedCount > 0
+                                ? '${_selectedContacts.length} published to Firebase.'
+                                : '${_selectedContacts.length}  contacts were not updated.'
+                              ),
+                              backgroundColor: updatedCount > 0 ? Colors.green : Colors.red,
+                            ),
+                            );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ] else ...[
+              IconButton(
+                icon: Icon(Icons.select_all, color: Colors.white),
+                onPressed: () {
+                  setState(() {
+                    _isSelectionMode = true;
+                    _selectedContacts.addAll(controller.filteredContacts);
+                  });
+                },
+                iconSize: getIconSize(18),
+              ),
+            ],
+          ],
+        ),
+        body: RefreshIndicator(
+          color: Colors.blue,
+          onRefresh: _onRefresh,
+          child: Obx(() {
+            // Remove duplicates by phone number
+            final uniqueContacts = <String, Contact>{};
+            for (var contact in controller.filteredContacts) {
+              uniqueContacts[contact.id] = contact;
+            }
+            final filteredContacts = uniqueContacts.values.toList();
+            if (filteredContacts.isEmpty && _showNoContactsMessage) {
+              return ListView(
+                children: [
+                  SizedBox(height: screenHeight * 0.25),
+                  Center(
+                      child: Text("No contacts found",
+                          style: TextStyle(
+                              fontSize: getFontSize(18), color: Colors.grey))),
+                ],
+              );
+            }
+            if (filteredContacts.isEmpty) {
+              return ListView.builder(
+                itemCount: 8,
+                itemBuilder: (_, __) => Shimmer.fromColors(
+                  baseColor: Colors.grey[300]!,
+                  highlightColor: Colors.grey[100]!,
+                  child: ListTile(
+                    leading: CircleAvatar(radius: getIconSize(20)),
+                    title: Container(height: getFontSize(10), color: Colors.white),
+                    subtitle: Container(height: getFontSize(10), color: Colors.white),
+                  ),
+                ),
+              );
+            }
+            final Map<String, List<Contact>> groupedContacts = {};
+            for (var contact in filteredContacts) {
+              final char = contact.name[0];
+              final key =
+                  RegExp(r'[A-Za-z]').hasMatch(char) ? char.toUpperCase() : char;
+              groupedContacts.putIfAbsent(key, () => []).add(contact);
+            }
+            final keys = groupedContacts.keys.toList()..sort();
+            final groups = keys.map((key) {
+              final groupList = List<Contact>.from(groupedContacts[key]!)
+                ..sort((a, b) => a.name.compareTo(b.name));
+              return AlphabetListViewItemGroup(
+                tag: key,
+                children: groupList.map((contact) {
+                  final isSelected = _selectedContacts.contains(contact);
+                  return GestureDetector(
+                    onTap: () {
+                      if (_isSelectionMode) {
+                        _toggleSelection(contact);
+                      } else {
+                        setState(() {
+                          _expandedContact = _expandedContact == contact ? null : contact;
+                        });
+                      }
+                    },
+                    onLongPress: () => _toggleSelection(contact),
+                    child: Container(
+                      color: isSelected
+                          ? Colors.blue.withOpacity(0.2)
+                          : Colors.transparent,
+                      child: Column(
+                        children: [
+                          ListTile(
+                            leading: CircleAvatar(
+                              radius: getIconSize(20),
+                              child: Text(contact.name[0].toUpperCase(),
+                                  style: TextStyle(fontSize: getFontSize(18))),
+                            ),
+                            title: Row(
                               children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    IconButton(
-                                      icon: Icon(Icons.call,
-                                          color: Colors.green,
-                                          size: getIconSize(32)),
-                                      onPressed: () {
-                                        OppoFixLauncher.launchPhone(contact.phone);
-                                      },
-                                    ),
-                                    IconButton(
-                                      icon: Icon(Icons.message,
-                                          color: Colors.blue,
-                                          size: getIconSize(32)),
-                                      onPressed: () {
-                                        OppoFixLauncher.launchSMS(contact.phone);
-                                      },
-                                    ),
-                                    IconButton(
-                                      icon: Icon(Icons.info,
-                                          color: Colors.grey,
-                                          size: getIconSize(32)),
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                ContactDetailView(contact: contact),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                    IconButton(
-                                      icon: Icon(Icons.delete,
-                                          color: Colors.purple,
-                                          size: getIconSize(32)),
-                                      onPressed: () async {
-                                        final confirm = await showDialog<bool>(
-                                          context: context,
-                                          builder: (_) => AlertDialog(
-                                            title: Text('Confirm Deletion'),
-                                            content: Text('Delete ${contact.name}?'),
-                                            actions: [
-                                              TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(context, false),
-                                                  child: Text(
-                                                    'Cancel',
-                                                    style: TextStyle(color: Colors.black),
-                                                  )),
-                                              TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(context, true),
-                                                  child: Text(
-                                                    'Delete',
-                                                    style: TextStyle(color: Colors.red),
-                                                  )),
-                                            ],
-                                          ),
-                                        );
-                                        if (confirm == true) {
-                                          if (controller.isAdmin()) {
-                                            await controller
-                                                .deleteContactFromFirebaseIfAdmin(
-                                                    contact);
-                                          } else {
-                                            await controller.deleteContact(contact);
-                                          }
-                                          Get.snackbar('Contact Deleted',
-                                              '${contact.name} has been deleted.',
-                                              snackPosition: SnackPosition.BOTTOM,
-                                              backgroundColor: Colors.green,
-                                              colorText: Colors.white);
-                                        }
-                                      },
-                                    ),
-                                    
-                                  ],
+                                Flexible(
+                                  child: Text(contact.name,
+                                      style: TextStyle(fontSize: getFontSize(16))),
+                                ),
+                                if (contact.ownerId == 'admin' &&
+                                    contact.isSynced == true) ...[
+                                  SizedBox(width: 6),
+                                  Icon(Icons.verified,
+                                      color: Colors.blue, size: getIconSize(14)),
+                                ],
+                              ],
+                            ),
+                            subtitle: Text(contact.phone,
+                                style: TextStyle(fontSize: getFontSize(14))),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    contact.isFavorite
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    color: contact.isFavorite ? Colors.red : null,
+                                  ),
+                                  onPressed: () => controller.toggleFavorite(contact),
+                                  iconSize: getIconSize(22),
                                 ),
                               ],
                             ),
                           ),
-                      ],
+                          if (_expandedContact == contact)
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: isSmallScreen ? 8 : 16,
+                                  vertical: isSmallScreen ? 4 : 8),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(Icons.call,
+                                            color: Colors.green,
+                                            size: getIconSize(32)),
+                                        onPressed: () {
+                                          OppoFixLauncher.launchPhone(contact.phone);
+                                        },
+                                      ),
+                                      IconButton(
+                                        icon: Icon(Icons.message,
+                                            color: Colors.blue,
+                                            size: getIconSize(32)),
+                                        onPressed: () {
+                                          OppoFixLauncher.launchSMS(contact.phone);
+                                        },
+                                      ),
+                                      IconButton(
+                                        icon: Icon(Icons.info,
+                                            color: Colors.grey,
+                                            size: getIconSize(32)),
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  ContactDetailView(contact: contact),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      IconButton(
+                                        icon: Icon(Icons.delete,
+                                            color: Colors.purple,
+                                            size: getIconSize(32)),
+                                        onPressed: () async {
+                                          final confirm = await showDialog<bool>(
+                                            context: context,
+                                            builder: (_) => AlertDialog(
+                                              title: Text('Confirm Deletion'),
+                                              content: Text('Delete ${contact.name}?'),
+                                              actions: [
+                                                TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(context, false),
+                                                    child: Text(
+                                                      'Cancel',
+                                                      style: TextStyle(color: Colors.black),
+                                                    )),
+                                                TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(context, true),
+                                                    child: Text(
+                                                      'Delete',
+                                                      style: TextStyle(color: Colors.red),
+                                                    )),
+                                              ],
+                                            ),
+                                          );
+                                          if (confirm == true) {
+                                            if (controller.isAdmin()) {
+                                              await controller
+                                                  .deleteContactFromFirebaseIfAdmin(
+                                                      contact);
+                                            } else {
+                                              await controller.deleteContact(contact);
+                                            }
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('${contact.name} has been deleted.'),
+                                                backgroundColor: Colors.green,
+                                              ),
+                                            );
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            }).toList();
+      
+            return AlphabetListView(
+              items: groups,
+              options: AlphabetListViewOptions(
+                overlayOptions: OverlayOptions(
+                  showOverlay: true,
+                  overlayBuilder: (_, tag) => Container(
+                    width: isSmallScreen ? 60 : 80,
+                    height: isSmallScreen ? 60 : 80,
+                    decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.8),
+                        shape: BoxShape.circle),
+                    alignment: Alignment.center,
+                    child: Text(tag,
+                        style: TextStyle(
+                            fontSize: getFontSize(40),
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white)),
+                  ),
+                ),
+                scrollbarOptions: ScrollbarOptions(
+                  backgroundColor: Colors.white,
+                  width: isSmallScreen ? 18 : 25,
+                  symbols: keys,
+                  symbolBuilder: (_, symbol, state) => Text(
+                    symbol,
+                    style: TextStyle(
+                      fontSize: getFontSize(14),
+                      fontWeight: state == AlphabetScrollbarItemState.active
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                      color: state == AlphabetScrollbarItemState.active
+                          ? Colors.blue
+                          : Colors.black,
                     ),
                   ),
-                );
-              }).toList(),
+                  padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 2 : 4),
+                ),
+                listOptions: ListOptions(backgroundColor: Colors.white),
+              ),
             );
-          }).toList();
-
-          return AlphabetListView(
-            items: groups,
-            options: AlphabetListViewOptions(
-              overlayOptions: OverlayOptions(
-                showOverlay: true,
-                overlayBuilder: (_, tag) => Container(
-                  width: isSmallScreen ? 60 : 80,
-                  height: isSmallScreen ? 60 : 80,
-                  decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.8),
-                      shape: BoxShape.circle),
-                  alignment: Alignment.center,
-                  child: Text(tag,
-                      style: TextStyle(
-                          fontSize: getFontSize(40),
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white)),
+          }),
+        ),
+        floatingActionButton: _isSelectionMode
+            ? null
+            : Transform.translate(
+                offset: Offset(-20, 0),
+                child: FloatingActionButton(
+                  onPressed: () {
+                    Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => AddEditContactPage()));
+                  },
+                  child: Icon(Icons.add, size: getIconSize(18)),
                 ),
               ),
-              scrollbarOptions: ScrollbarOptions(
-                backgroundColor: Colors.white,
-                width: isSmallScreen ? 18 : 25,
-                symbols: keys,
-                symbolBuilder: (_, symbol, state) => Text(
-                  symbol,
-                  style: TextStyle(
-                    fontSize: getFontSize(14),
-                    fontWeight: state == AlphabetScrollbarItemState.active
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                    color: state == AlphabetScrollbarItemState.active
-                        ? Colors.blue
-                        : Colors.black,
-                  ),
-                ),
-                padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 2 : 4),
-              ),
-              listOptions: ListOptions(backgroundColor: Colors.white),
-            ),
-          );
-        }),
       ),
-      floatingActionButton: _isSelectionMode
-          ? null
-          : Transform.translate(
-              offset: Offset(-20, 0),
-              child: FloatingActionButton(
-                onPressed: () {
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => AddEditContactPage()));
-                },
-                child: Icon(Icons.add, size: getIconSize(18)),
-              ),
-            ),
     );
   }
 }
