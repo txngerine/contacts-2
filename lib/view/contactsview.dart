@@ -46,7 +46,6 @@ class OppoFixLauncher {
   static Future<void> launchSMS(String phoneNumber) async {
     await launchCustomURL(Uri(scheme: 'sms', path: phoneNumber));
   }
-
 }
 
 class ContactsView extends StatefulWidget {
@@ -57,11 +56,12 @@ class ContactsView extends StatefulWidget {
 class _ContactsViewState extends State<ContactsView> {
   final ContactController controller = Get.find<ContactController>();
   final Set<Contact> _selectedContacts = {};
+
   bool _isSelectionMode = false;
   bool _showNoContactsMessage = false;
   late Worker _searchDebounce;
   late Worker _filteredContactsEver;
-  Contact? _expandedContact; // <-- Add this
+  Contact? _expandedContact;
 
   @override
   void initState() {
@@ -69,42 +69,34 @@ class _ContactsViewState extends State<ContactsView> {
     controller.contacts.value = controller.contactBox.values.toList();
     controller.filterContacts();
 
-    // Debounced search
     _searchDebounce = debounce(controller.searchQuery, (_) {
       controller.filterContacts();
     }, time: Duration(milliseconds: 300));
 
-    // Show 'no contacts' message only after filter
-
     _filteredContactsEver =
         ever(controller.filteredContacts, (List<Contact> filtered) {
-      if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            Future.microtask(() {
-              if (mounted) {
-                setState(() {
-                  _showNoContactsMessage =
-                      filtered.isEmpty && controller.searchQuery.isEmpty;
-                });
-              }
-            });
-          }
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _showNoContactsMessage =
+            filtered.isEmpty && controller.searchQuery.isEmpty;
+      });
     });
   }
 
   @override
   void dispose() {
     _searchDebounce.dispose();
-    _filteredContactsEver.dispose(); // <-- Dispose the ever listener
+    _filteredContactsEver.dispose();
     super.dispose();
   }
 
   Future<void> _onRefresh() async {
     await controller.fetchContacts();
     controller.filterContacts();
+    setState(() {
+      _selectedContacts.clear();
+      _isSelectionMode = false;
+    });
   }
 
   void _toggleSelection(Contact contact) {
@@ -145,21 +137,17 @@ class _ContactsViewState extends State<ContactsView> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: Colors.black),
-              )),
+              child: Text('Cancel', style: TextStyle(color: Colors.black))),
           TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text(
-                'Delete',
-                style: TextStyle(color: Colors.red),
-              )),
+              child: Text('Delete', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
 
     if (confirm == true) {
+      final deletedCount = _selectedContacts.length;
+
       if (controller.isAdmin()) {
         for (var contact in _selectedContacts) {
           await controller.deleteContactFromFirebaseIfAdmin(contact);
@@ -169,6 +157,7 @@ class _ContactsViewState extends State<ContactsView> {
           await controller.deleteContact(contact);
         }
       }
+
       setState(() {
         _selectedContacts.clear();
         _isSelectionMode = false;
@@ -176,7 +165,7 @@ class _ContactsViewState extends State<ContactsView> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${_selectedContacts.length} contacts have been deleted successfully.'),
+          content: Text('$deletedCount contacts have been deleted successfully.'),
           backgroundColor: Colors.green,
         ),
       );
@@ -202,17 +191,11 @@ class _ContactsViewState extends State<ContactsView> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: Colors.black),
-              )),
+              child: Text('Cancel', style: TextStyle(color: Colors.black))),
           TextButton(
               onPressed: () =>
                   Navigator.pop(context, controllerInput.text.trim()),
-              child: Text(
-                'Create',
-                style: TextStyle(color: Colors.green),
-              )),
+              child: Text('Create', style: TextStyle(color: Colors.green))),
         ],
       ),
     );
@@ -265,15 +248,14 @@ class _ContactsViewState extends State<ContactsView> {
 
     return WillPopScope(
       onWillPop: () async {
-        print('Back button pressed'); // Debug print
         if (_isSelectionMode) {
           setState(() {
             _selectedContacts.clear();
             _isSelectionMode = false;
           });
-          return false; // Prevent navigation
+          return false;
         }
-        return true; // Allow navigation
+        return true;
       },
       child: Scaffold(
         backgroundColor: Colors.white,
@@ -361,56 +343,86 @@ class _ContactsViewState extends State<ContactsView> {
                   if (controller.isAdmin() && _selectedContacts.isNotEmpty)
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 4),
-                      child: ElevatedButton.icon(
-                        icon: Icon(Icons.cloud_upload, size: getIconSize(16)),
-                        label: Text(
-                          '',
-                          style: TextStyle(fontSize: getFontSize(12)),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                        ),
-                        onPressed: () async {
-                          final contactsToSync = _selectedContacts
-                              .where((c) => c.isSynced == false)
-                              .toList();
-                            if (contactsToSync.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                              content: Text('Selected contacts are already synced.'),
-                              backgroundColor: Colors.orange,
-                              ),
-                            );
-                            return;
-                            }
-
-                            int updatedCount = 0;
-                            for (var contact in contactsToSync) {
-                            await controller.syncContactToFirestore(contact);
-                            updatedCount++;
-                            }
-
-                            setState(() {
-                            _selectedContacts.clear();
-                            _isSelectionMode = false;
-                            });
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                              updatedCount > 0
-                                ? '${_selectedContacts.length} published to Firebase.'
-                                : '${_selectedContacts.length}  contacts were not updated.'
-                              ),
-                              backgroundColor: updatedCount > 0 ? Colors.green : Colors.red,
+                      child: Builder(
+                        builder: (context) {
+                          final allPublished = _selectedContacts.isNotEmpty &&
+                              _selectedContacts.every((c) => c.isSynced == true);
+                          return ElevatedButton.icon(
+                            icon: Icon(
+                              allPublished ? Icons.cloud_off : Icons.cloud_upload,
+                              size: getIconSize(16),
                             ),
-                            );
+                            label: Text(
+                              allPublished ? 'Unpublish' : '',
+                              style: TextStyle(fontSize: getFontSize(12)),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: allPublished ? Colors.red : Colors.orange,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                            ),
+                            onPressed: () async {
+                              if (allPublished) {
+                                // Unpublish logic
+                                int updatedCount = 0;
+                                for (var contact in _selectedContacts) {
+                                  await controller.unsyncContact(contact);
+                                  updatedCount++;
+                                }
+                                setState(() {
+                                  _selectedContacts.clear();
+                                  _isSelectionMode = false;
+                                });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                        '$updatedCount contact(s) unpublished from Firebase.'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              } else {
+                                // Publish logic (your existing code)
+                                final contactsToSync = _selectedContacts
+                                    .where((c) => c.isSynced == false)
+                                    .toList();
+                                if (contactsToSync.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Selected contacts are already synced.'),
+                                      backgroundColor: Colors.orange,
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                int updatedCount = 0;
+                                for (var contact in contactsToSync) {
+                                  await controller.syncContactToFirestore(contact);
+                                  updatedCount++;
+                                }
+
+                                setState(() {
+                                  _selectedContacts.clear();
+                                  _isSelectionMode = false;
+                                });
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      updatedCount > 0
+                                          ? '$updatedCount published to Firebase.'
+                                          : 'No contacts were updated.',
+                                    ),
+                                    backgroundColor: updatedCount > 0 ? Colors.green : Colors.red,
+                                  ),
+                                );
+                              }
+                            },
+                          );
                         },
                       ),
                     ),
@@ -434,12 +446,12 @@ class _ContactsViewState extends State<ContactsView> {
           color: Colors.blue,
           onRefresh: _onRefresh,
           child: Obx(() {
-            // Remove duplicates by phone number
             final uniqueContacts = <String, Contact>{};
             for (var contact in controller.filteredContacts) {
               uniqueContacts[contact.id] = contact;
             }
             final filteredContacts = uniqueContacts.values.toList();
+
             if (filteredContacts.isEmpty && _showNoContactsMessage) {
               return ListView(
                 children: [
@@ -447,7 +459,8 @@ class _ContactsViewState extends State<ContactsView> {
                   Center(
                       child: Text("No contacts found",
                           style: TextStyle(
-                              fontSize: getFontSize(18), color: Colors.grey))),
+                              fontSize: getFontSize(18),
+                              color: Colors.grey))),
                 ],
               );
             }
@@ -459,23 +472,27 @@ class _ContactsViewState extends State<ContactsView> {
                   highlightColor: Colors.grey[100]!,
                   child: ListTile(
                     leading: CircleAvatar(radius: getIconSize(20)),
-                    title: Container(height: getFontSize(10), color: Colors.white),
-                    subtitle: Container(height: getFontSize(10), color: Colors.white),
+                    title:
+                        Container(height: getFontSize(10), color: Colors.white),
+                    subtitle:
+                        Container(height: getFontSize(10), color: Colors.white),
                   ),
                 ),
               );
             }
+
             final Map<String, List<Contact>> groupedContacts = {};
             for (var contact in filteredContacts) {
-              final char = contact.name[0];
-              final key =
-                  RegExp(r'[A-Za-z]').hasMatch(char) ? char.toUpperCase() : char;
-              groupedContacts.putIfAbsent(key, () => []).add(contact);
+              final name = contact.name?.trim() ?? '';
+              final char = name.isNotEmpty ? name[0].toUpperCase() : '#';
+              groupedContacts.putIfAbsent(char, () => []).add(contact);
             }
+
             final keys = groupedContacts.keys.toList()..sort();
             final groups = keys.map((key) {
               final groupList = List<Contact>.from(groupedContacts[key]!)
-                ..sort((a, b) => a.name.compareTo(b.name));
+                ..sort((a, b) =>
+                    (a.name ?? '').compareTo(b.name ?? ''));
               return AlphabetListViewItemGroup(
                 tag: key,
                 children: groupList.map((contact) {
@@ -486,7 +503,8 @@ class _ContactsViewState extends State<ContactsView> {
                         _toggleSelection(contact);
                       } else {
                         setState(() {
-                          _expandedContact = _expandedContact == contact ? null : contact;
+                          _expandedContact =
+                              _expandedContact == contact ? null : contact;
                         });
                       }
                     },
@@ -500,25 +518,33 @@ class _ContactsViewState extends State<ContactsView> {
                           ListTile(
                             leading: CircleAvatar(
                               radius: getIconSize(20),
-                              child: Text(contact.name[0].toUpperCase(),
-                                  style: TextStyle(fontSize: getFontSize(18))),
+                              child: Text(
+                                (contact.name?.isNotEmpty ?? false)
+                                    ? contact.name![0].toUpperCase()
+                                    : '#',
+                                style:
+                                    TextStyle(fontSize: getFontSize(18)),
+                              ),
                             ),
                             title: Row(
                               children: [
                                 Flexible(
-                                  child: Text(contact.name,
-                                      style: TextStyle(fontSize: getFontSize(16))),
+                                  child: Text(contact.name ?? '',
+                                      style: TextStyle(
+                                          fontSize: getFontSize(16))),
                                 ),
                                 if (contact.ownerId == 'admin' &&
                                     contact.isSynced == true) ...[
                                   SizedBox(width: 6),
                                   Icon(Icons.verified,
-                                      color: Colors.blue, size: getIconSize(14)),
+                                      color: Colors.blue,
+                                      size: getIconSize(14)),
                                 ],
                               ],
                             ),
                             subtitle: Text(contact.phone,
-                                style: TextStyle(fontSize: getFontSize(14))),
+                                style: TextStyle(
+                                    fontSize: getFontSize(14))),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -527,9 +553,12 @@ class _ContactsViewState extends State<ContactsView> {
                                     contact.isFavorite
                                         ? Icons.favorite
                                         : Icons.favorite_border,
-                                    color: contact.isFavorite ? Colors.red : null,
+                                    color: contact.isFavorite
+                                        ? Colors.red
+                                        : null,
                                   ),
-                                  onPressed: () => controller.toggleFavorite(contact),
+                                  onPressed: () =>
+                                      controller.toggleFavorite(contact),
                                   iconSize: getIconSize(22),
                                 ),
                               ],
@@ -540,87 +569,93 @@ class _ContactsViewState extends State<ContactsView> {
                               padding: EdgeInsets.symmetric(
                                   horizontal: isSmallScreen ? 8 : 16,
                                   vertical: isSmallScreen ? 4 : 8),
-                              child: Column(
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceEvenly,
                                 children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                    children: [
-                                      IconButton(
-                                        icon: Icon(Icons.call,
-                                            color: Colors.green,
-                                            size: getIconSize(32)),
-                                        onPressed: () {
-                                          OppoFixLauncher.launchPhone(contact.phone);
-                                        },
-                                      ),
-                                      IconButton(
-                                        icon: Icon(Icons.message,
-                                            color: Colors.blue,
-                                            size: getIconSize(32)),
-                                        onPressed: () {
-                                          OppoFixLauncher.launchSMS(contact.phone);
-                                        },
-                                      ),
-                                      IconButton(
-                                        icon: Icon(Icons.info,
-                                            color: Colors.grey,
-                                            size: getIconSize(32)),
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  ContactDetailView(contact: contact),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      IconButton(
-                                        icon: Icon(Icons.delete,
-                                            color: Colors.purple,
-                                            size: getIconSize(32)),
-                                        onPressed: () async {
-                                          final confirm = await showDialog<bool>(
-                                            context: context,
-                                            builder: (_) => AlertDialog(
-                                              title: Text('Confirm Deletion'),
-                                              content: Text('Delete ${contact.name}?'),
-                                              actions: [
-                                                TextButton(
-                                                    onPressed: () =>
-                                                        Navigator.pop(context, false),
-                                                    child: Text(
-                                                      'Cancel',
-                                                      style: TextStyle(color: Colors.black),
-                                                    )),
-                                                TextButton(
-                                                    onPressed: () =>
-                                                        Navigator.pop(context, true),
-                                                    child: Text(
-                                                      'Delete',
-                                                      style: TextStyle(color: Colors.red),
-                                                    )),
-                                              ],
-                                            ),
-                                          );
-                                          if (confirm == true) {
-                                            if (controller.isAdmin()) {
-                                              await controller
-                                                  .deleteContactFromFirebaseIfAdmin(
-                                                      contact);
-                                            } else {
-                                              await controller.deleteContact(contact);
-                                            }
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(
-                                                content: Text('${contact.name} has been deleted.'),
-                                                backgroundColor: Colors.green,
-                                              ),
-                                            );
-                                          }
-                                        },
-                                      ),
-                                    ],
+                                  IconButton(
+                                    icon: Icon(Icons.call,
+                                        color: Colors.green,
+                                        size: getIconSize(32)),
+                                    onPressed: () {
+                                      OppoFixLauncher.launchPhone(
+                                          contact.phone);
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.message,
+                                        color: Colors.blue,
+                                        size: getIconSize(32)),
+                                    onPressed: () {
+                                      OppoFixLauncher.launchSMS(
+                                          contact.phone);
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.info,
+                                        color: Colors.grey,
+                                        size: getIconSize(32)),
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              ContactDetailView(
+                                                  contact: contact),
+                                        ),
+                                      ).then((_) => _onRefresh());
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.delete,
+                                        color: Colors.purple,
+                                        size: getIconSize(32)),
+                                    onPressed: () async {
+                                      final confirm =
+                                          await showDialog<bool>(
+                                        context: context,
+                                        builder: (_) => AlertDialog(
+                                          title:
+                                              Text('Confirm Deletion'),
+                                          content: Text(
+                                              'Delete ${contact.name}?'),
+                                          actions: [
+                                            TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(
+                                                        context, false),
+                                                child: Text('Cancel',
+                                                    style: TextStyle(
+                                                        color: Colors
+                                                            .black))),
+                                            TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(
+                                                        context, true),
+                                                child: Text('Delete',
+                                                    style: TextStyle(
+                                                        color:
+                                                            Colors.red))),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirm == true) {
+                                        if (controller.isAdmin()) {
+                                          await controller
+                                              .deleteContactFromFirebaseIfAdmin(
+                                                  contact);
+                                        } else {
+                                          await controller
+                                              .deleteContact(contact);
+                                        }
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(SnackBar(
+                                          content: Text(
+                                              '${contact.name} has been deleted.'),
+                                          backgroundColor: Colors.green,
+                                        ));
+                                      }
+                                    },
                                   ),
                                 ],
                               ),
@@ -632,7 +667,7 @@ class _ContactsViewState extends State<ContactsView> {
                 }).toList(),
               );
             }).toList();
-      
+
             return AlphabetListView(
               items: groups,
               options: AlphabetListViewOptions(
@@ -660,15 +695,18 @@ class _ContactsViewState extends State<ContactsView> {
                     symbol,
                     style: TextStyle(
                       fontSize: getFontSize(14),
-                      fontWeight: state == AlphabetScrollbarItemState.active
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                      color: state == AlphabetScrollbarItemState.active
+                      fontWeight:
+                          state == AlphabetScrollbarItemState.active
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                      color: state ==
+                              AlphabetScrollbarItemState.active
                           ? Colors.blue
                           : Colors.black,
                     ),
                   ),
-                  padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 2 : 4),
+                  padding: EdgeInsets.symmetric(
+                      vertical: isSmallScreen ? 2 : 4),
                 ),
                 listOptions: ListOptions(backgroundColor: Colors.white),
               ),
@@ -677,16 +715,20 @@ class _ContactsViewState extends State<ContactsView> {
         ),
         floatingActionButton: _isSelectionMode
             ? null
-            : Transform.translate(
-                offset: Offset(-20, 0),
-                child: FloatingActionButton(
-                  onPressed: () {
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => AddEditContactPage()));
-                  },
-                  child: Icon(Icons.add, size: getIconSize(18)),
-                ),
+            : FloatingActionButton(
+                onPressed: () {
+                  setState(() {
+                    _selectedContacts.clear();
+                    _isSelectionMode = false;
+                  });
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => AddEditContactPage()),
+                  );
+                },
+                child: Icon(Icons.add, size: getIconSize(18)),
               ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       ),
     );
   }

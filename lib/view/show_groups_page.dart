@@ -148,7 +148,7 @@ class _ShowGroupsPageState extends State<ShowGroupsPage> {
     );
 
     if (confirm == true) {
-      groupController.deleteGroup(group.id); // Delete the contact
+      groupController.deleteGroup(group.id); 
       Get.snackbar(
         'Contact Deleted',
         '${group.name} has been deleted successfully.',

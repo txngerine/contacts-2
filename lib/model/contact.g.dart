@@ -32,14 +32,16 @@ class ContactAdapter extends TypeAdapter<Contact> {
       facebook: fields[12] as String?,
       instagram: fields[13] as String?,
       youtube: fields[14] as String?,
+      website: fields[16] as String?,
       isSynced: fields[15] as bool,
+      importedFromCsv: fields[17] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, Contact obj) {
     writer
-      ..writeByte(16)
+      ..writeByte(18)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -71,7 +73,11 @@ class ContactAdapter extends TypeAdapter<Contact> {
       ..writeByte(14)
       ..write(obj.youtube)
       ..writeByte(15)
-      ..write(obj.isSynced);
+      ..write(obj.isSynced)
+      ..writeByte(16)
+      ..write(obj.website)
+      ..writeByte(17)
+      ..write(obj.importedFromCsv);
   }
 
   @override

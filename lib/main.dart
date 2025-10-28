@@ -22,16 +22,12 @@ import 'view/splashscreen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // Initialize Hive
   await Hive.initFlutter();
   Hive.registerAdapter(ContactAdapter());
   Hive.registerAdapter(GroupAdapter());
   await Hive.openBox<Contact>('contacts');
-
-  // Initialize GetX controllers
   Get.put(AuthController());
   Get.put(HomeController());
   Get.put(ContactController());
@@ -56,13 +52,13 @@ class MyApp extends StatelessWidget {
           elevation: 0,
         ),
         textSelectionTheme: TextSelectionThemeData(
-          cursorColor: Colors.blue, // Cursor color
-          selectionColor: Colors.blue.withOpacity(0.3), // Selected text color
+          cursorColor: Colors.blue,
+          selectionColor: Colors.blue.withOpacity(0.3), 
           selectionHandleColor: Colors.blue,
         ),
         colorScheme: ColorScheme.fromSwatch().copyWith(
           primary: Colors.white,
-          secondary: Colors.grey, // Adjust secondary color if needed
+          secondary: Colors.grey, 
         ),
       ),
       initialRoute: '/splash',

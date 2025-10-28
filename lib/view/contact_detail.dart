@@ -179,10 +179,10 @@ class _ContactDetailViewState extends State<ContactDetailView> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text('Cancel')),
+              child: Text('Cancel',style: TextStyle(color: Colors.black),)),
           TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text('Delete')),
+              child: Text('Delete',style: TextStyle(color: Colors.red),)),
         ],
       ),
     );
@@ -324,8 +324,8 @@ class _ContactDetailViewState extends State<ContactDetailView> {
               margin: EdgeInsets.symmetric(vertical: 8),
               child: ListTile(
                 leading: Icon(Bootstrap.phone_fill, color: Colors.green),
-                title: Text(contact.phone),
-                subtitle: Text('Mobile'),
+                title: Text('Mobile'),
+                subtitle: Text(contact.phone),
                 trailing: IconButton(
                   icon: Icon(Icons.message, color: Colors.blue),
                   onPressed: () => OppoFixLauncher.launchSMS(contact.phone),
@@ -335,21 +335,40 @@ class _ContactDetailViewState extends State<ContactDetailView> {
             ),
 
             /// Additional Phones
-            if (contact.phoneNumbers != null)
-              ...contact.phoneNumbers!.map((number) => Card(
-                    elevation: 4,
-                    margin: EdgeInsets.symmetric(vertical: 4),
-                    child: ListTile(
-                      leading: Icon(Bootstrap.phone, color: Colors.green),
-                      title: Text(number),
-                      subtitle: Text('Mobile'),
-                      trailing: IconButton(
-                        icon: Icon(Icons.message, color: Colors.blue),
-                        onPressed: () => OppoFixLauncher.launchSMS(number),
-                      ),
-                      onTap: () => OppoFixLauncher.launchPhone(number),
-                    ),
-                  )),
+            // if (contact.phoneNumbers != null)
+            //   ...contact.phoneNumbers!.map((number) => Card(
+            //         elevation: 4,
+            //         margin: EdgeInsets.symmetric(vertical: 4),
+            //         child: ListTile(
+            //           leading: Icon(Bootstrap.phone, color: Colors.green),
+            //           title: Text(number),
+            //           subtitle: Text('Mobile'),
+            //           trailing: IconButton(
+            //             icon: Icon(Icons.message, color: Colors.blue),
+            //             onPressed: () => OppoFixLauncher.launchSMS(number),
+            //           ),
+            //           onTap: () => OppoFixLauncher.launchPhone(number),
+            //         ),
+            //       )),
+            /// Additional Phones
+if (contact.phoneNumbers.isNotEmpty)
+  ...contact.phoneNumbers
+      .skip(contact.importedFromCsv ? 1 : 0) // 👈 only skip if CSV
+      .map((number) => Card(
+        elevation: 4,
+        margin: EdgeInsets.symmetric(vertical: 4),
+        child: ListTile(
+          leading: Icon(Bootstrap.phone, color: Colors.green),
+          title: Text(number),
+          subtitle: Text('Mobile'),
+          trailing: IconButton(
+            icon: Icon(Icons.message, color: Colors.blue),
+            onPressed: () => OppoFixLauncher.launchSMS(number),
+          ),
+          onTap: () => OppoFixLauncher.launchPhone(number),
+        ),
+      )),
+
 
             /// Landlines
             _buildOptionalCard(
@@ -360,18 +379,32 @@ class _ContactDetailViewState extends State<ContactDetailView> {
               color: Colors.green,
             ),
 
-            if (contact.landlineNumbers != null)
-              ...contact.landlineNumbers!.map((line) => Card(
-                    elevation: 4,
-                    margin: EdgeInsets.symmetric(vertical: 4),
-                    child: ListTile(
-                      leading:
-                          Icon(Bootstrap.telephone_fill, color: Colors.green),
-                      title: Text(line),
-                      subtitle: Text('Land Line'),
-                      onTap: () => OppoFixLauncher.launchPhone(line),
-                    ),
-                  )),
+            // if (contact.landlineNumbers != null)
+            //   ...contact.landlineNumbers!.map((line) => Card(
+            //         elevation: 4,
+            //         margin: EdgeInsets.symmetric(vertical: 4),
+            //         child: ListTile(
+            //           leading:
+            //               Icon(Bootstrap.telephone_fill, color: Colors.green),
+            //           title: Text(line),
+            //           subtitle: Text('Land Line'),
+            //           onTap: () => OppoFixLauncher.launchPhone(line),
+            //         ),
+            //       )),
+
+            if (contact.landlineNumbers.isNotEmpty)
+  ...contact.landlineNumbers
+      .skip(contact.importedFromCsv ? 1 : 0) // 👈 skip only if CSV
+      .map((landline) => Card(
+            elevation: 4,
+            margin: EdgeInsets.symmetric(vertical: 4),
+            child: ListTile(
+              leading: Icon(Bootstrap.telephone, color: Colors.orange),
+              title: Text(landline),
+              subtitle: Text('Landline'),
+              onTap: () => OppoFixLauncher.launchPhone(landline),
+            ),
+          )),
             /// Email (Admins only)
             if (isAdmin) ...[
               _buildOptionalCard(
@@ -381,36 +414,39 @@ class _ContactDetailViewState extends State<ContactDetailView> {
                 onTap: () => OppoFixLauncher.launchEmail(contact.email),
                 color: Colors.red,
               ),
-              if (contact.emailAddresses != null)
-                ...contact.emailAddresses!.map((email) => Card(
-                      elevation: 4,
-                      margin: EdgeInsets.symmetric(vertical: 4),
-                      child: ListTile(
-                        leading: Icon(Icons.email, color: Colors.red),
-                        title: Text(email),
-                        onTap: () => OppoFixLauncher.launchEmail(email),
-                      ),
-                    )),
+              if (contact.emailAddresses.isNotEmpty)
+  ...contact.emailAddresses
+      .skip(contact.importedFromCsv ? 1 : 0) // 👈 skip only if CSV
+      .map((email) => Card(
+            elevation: 4,
+            margin: EdgeInsets.symmetric(vertical: 4),
+            child: ListTile(
+              leading: Icon(Icons.email, color: Colors.red),
+              title: Text(email),
+              subtitle: Text('Email'),
+              onTap: () => OppoFixLauncher.launchEmail(email),
+            ),
+          )),
             ],
             /// Email
-            _buildOptionalCard(
-              icon: Icons.email,
-              label: 'Email',
-              value: contact.email,
-              onTap: () => OppoFixLauncher.launchEmail(contact.email),
-              color: Colors.red,
-            ),
+            // _buildOptionalCard(
+            //   icon: Icons.email,
+            //   label: 'Email',
+            //   value: contact.email,
+            //   onTap: () => OppoFixLauncher.launchEmail(contact.email),
+            //   color: Colors.red,
+            // ),
 
-            if (contact.emailAddresses != null)
-              ...contact.emailAddresses!.map((email) => Card(
-                    elevation: 4,
-                    margin: EdgeInsets.symmetric(vertical: 4),
-                    child: ListTile(
-                      leading: Icon(Icons.email, color: Colors.red),
-                      title: Text(email),
-                      onTap: () => OppoFixLauncher.launchEmail(email),
-                    ),
-                  )),
+            // if (contact.emailAddresses != null)
+            //   ...contact.emailAddresses!.map((email) => Card(
+            //         elevation: 4,
+            //         margin: EdgeInsets.symmetric(vertical: 4),
+            //         child: ListTile(
+            //           leading: Icon(Icons.email, color: Colors.red),
+            //           title: Text(email),
+            //           onTap: () => OppoFixLauncher.launchEmail(email),
+            //         ),
+            //       )),
 
             /// WhatsApp
             if (contact.whatsapp != null && contact.whatsapp!.isNotEmpty)

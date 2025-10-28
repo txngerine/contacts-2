@@ -103,7 +103,9 @@ class AddEditProfileContactController extends GetxController {
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      Get.snackbar('Error', 'You must be logged in to save a contact.');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('You must be logged in to save a contact.'), backgroundColor: Colors.red),
+      );
       return;
     }
 
@@ -135,7 +137,7 @@ class AddEditProfileContactController extends GetxController {
         phone: phoneController.text,
         landline: landlineController.text,
         email: emailController.text,
-        ownerId: user.uid, // <-- FIXED HERE
+        ownerId: nameController.text, // <-- FIXED HERE
         customFields: customFieldsMap,
         phoneNumbers: phoneNumbers,
         emailAddresses: emailAddresses,
@@ -219,7 +221,7 @@ class AddEditProfileContactController extends GetxController {
       Get.snackbar('Error', 'You must be logged in to publish.');
       return;
     }
-    contact.ownerId = user.uid;
+    contact.ownerId = user.uid; // <-- FIXED HERE
 
     try {
       // Check for duplicate by name and (phone or email) for this user
@@ -260,7 +262,9 @@ class AddEditProfileContactController extends GetxController {
           'website': contact.website,
           'isFavorite': contact.isFavorite,
         });
-        Get.snackbar('Updated', 'Duplicate found. Existing contact updated.');
+        ScaffoldMessenger.of(Get.context!).showSnackBar(
+          SnackBar(content: Text('Duplicate found. Existing contact updated.'), backgroundColor: Colors.green),
+        );
       } else {
         // No duplicate, create new
         await FirebaseFirestore.instance
@@ -282,10 +286,14 @@ class AddEditProfileContactController extends GetxController {
           'website': contact.website,
           'isFavorite': contact.isFavorite,
         });
-        Get.snackbar('Success', 'Contact published to Firebase.');
+        ScaffoldMessenger.of(Get.context!).showSnackBar(
+          SnackBar(content: Text('Contact published to Firebase.'), backgroundColor: Colors.green),
+        );
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to publish contact: $e');
+      ScaffoldMessenger.of(Get.context!).showSnackBar(
+        SnackBar(content: Text('Failed to publish contact: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 }

@@ -9,7 +9,6 @@ class SignupView extends StatelessWidget {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
 
-  // Form key for validation
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   @override

@@ -2,10 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'dart:io'; // Import for checking internet connectivity
-import '../controllers/auth_controller.dart'; // Import AuthController
-import 'home_view.dart'; // Import HomeView
-import 'login_view.dart'; // Import LoginView
+import 'dart:io';
+import '../controllers/auth_controller.dart';
+import 'home_view.dart';
+import 'login_view.dart';
 
 class SplashScreen extends StatefulWidget {
   @override

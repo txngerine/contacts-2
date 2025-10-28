@@ -195,7 +195,7 @@ class AddEditContactPage extends StatelessWidget {
           name: contact!.name,
           phone: contact!.phone,
           landline: contact!.landline,
-          email: contact!.email,
+          email: contact!.email ?? '',
           phoneNumbers: contact!.phoneNumbers,
           landlineNumbers: contact!.landlineNumbers,
           emailAddresses: contact!.emailAddresses,

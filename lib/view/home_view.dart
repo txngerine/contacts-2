@@ -1,12 +1,14 @@
-// ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables
+// ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables, use_super_parameters, deprecated_member_use, unnecessary_string_interpolations
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flashy_tab_bar2/flashy_tab_bar2.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:share_plus/share_plus.dart';
+import 'dart:io' show Platform;
 
 import '../controllers/auth_controller.dart';
-import '../controllers/home_controller.dart'; // <-- Added
+import '../controllers/home_controller.dart';
 import 'faq_view.dart';
 import 'importcontactvcf.dart';
 import 'recycleview.dart';
@@ -31,7 +33,7 @@ class HomeView extends StatelessWidget {
       highlightColor: Colors.grey.shade100,
       child: ListView.builder(
         padding: EdgeInsets.all(16),
-        itemCount: 6,
+        itemCount: 5,
         itemBuilder: (_, __) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Container(
@@ -58,7 +60,7 @@ class HomeView extends StatelessWidget {
         ShowGroupsPage(),
         if (isAdmin) AdminView(),
         ProfileView(),
-        RecycleBinView(), // Added Recycle Bin View
+        RecycleBinView(),
       ];
 
       final List<FlashyTabBarItem> tabItems = [
@@ -87,7 +89,7 @@ class HomeView extends StatelessWidget {
       ];
 
       return WillPopScope(
-        onWillPop: () async => true, // Prevent back navigation
+        onWillPop: () async => true,
         child: Scaffold(
           appBar: AppBar(
             backgroundColor: Colors.blue,
@@ -127,9 +129,31 @@ class HomeView extends StatelessWidget {
                     Get.to(ContactImportFromVcfView());
                   } else if (value == 'faq') {
                     Get.to(FaqView());
-                  }else if (value == 'Recycle Bin') {
+                  } else if (value == 'Recycle Bin') {
                     Get.to(RecycleBinView());
-                  }else if (value == 'logout') {
+                  } else if (value == 'share') {
+                    const playStoreLink =
+                        'https://play.google.com/store/apps/details?id=com.codecarrots.korlinks';
+                    const appStoreLink =
+                        'https://apps.apple.com/app/id123456789';
+
+                    if (Platform.isAndroid) {
+                      Share.share(
+                        'Download our app from the Play Store:\n$playStoreLink',
+                        subject: 'Check out this app!',
+                      );
+                    } else if (Platform.isIOS) {
+                      Share.share(
+                        'Download our app from the App Store:\n$appStoreLink',
+                        subject: 'Check out this app!',
+                      );
+                    } else {
+                      Share.share(
+                        'Get our app:\nAndroid: $playStoreLink\niOS: $appStoreLink',
+                        subject: 'Check out this app!',
+                      );
+                    }
+                  } else if (value == 'logout') {
                     authController.logout();
                   }
                 },
@@ -162,6 +186,10 @@ class HomeView extends StatelessWidget {
                   PopupMenuItem(
                     value: 'Recycle Bin',
                     child: Text('Recycle Bin'),
+                  ),
+                  PopupMenuItem(
+                    value: 'share',
+                    child: Text('Share App'),
                   ),
                   PopupMenuItem(
                     value: 'logout',
