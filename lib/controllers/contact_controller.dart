@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,8 +7,16 @@ import '../model/contact.dart';
 import 'auth_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:uuid/uuid.dart';
 
 class ContactController extends GetxController {
+  /// Returns true if the given ownerId is an admin.
+  /// You can customize this logic as needed (e.g., check against a list of admin UIDs).
+  bool isAdminUid(String ownerId) {
+    // In your app, admin contacts use ownerId 'admin'.
+    // If you use real UIDs for admins, add them to this list.
+    return ownerId == 'admin';
+  }
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final AuthController authController = Get.find<AuthController>();
@@ -45,112 +54,70 @@ RxList<Contact> deletedContacts = <Contact>[].obs;
     fetchContacts();
   }
 
-  // Future<void> fetchContacts() async {
-  //   if (isFetching.value) return;
-  //   isFetching.value = true;
-
-  //   try {
-  //     final user = authController.firebaseUser.value;
-  //     if (user == null) throw Exception('User not authenticated');
-
-  //     final userDoc = await firestore.collection('users').doc(user.uid).get();
-  //     final isAdmin = userDoc.exists && userDoc.data()?['role'] == 'admin';
-
-  //     Query<Map<String, dynamic>> query;
-
-  //     if (isAdmin) {
-  //       query = firestore.collection('contacts').limit(pageSize);
-  //     } else {
-  //       query = firestore.collection('contacts').limit(pageSize);
-  //     }
-
-  //     final snapshot = await query.get();
-
-  //     final firestoreContacts = snapshot.docs
-  //         .map((doc) => Contact.fromMap(doc.id, doc.data()))
-  //         .toList();
-
-  //     // Merge with local Hive contacts
-  //     final localContacts = contactBox.values.toList();
-
-  //     final allContacts = [
-  //       ...firestoreContacts,
-  //       ...localContacts.where((local) =>
-  //           !firestoreContacts.any((remote) => remote.id == local.id))
-  //     ];
-
-  //     // Instead of await contactBox.clear();, merge new contacts:
-  //     for (var contact in firestoreContacts) {
-  //       await contactBox.put(contact.id, contact);
-  //     }
-  //     // Optionally, remove contacts from Hive that are no longer in Firestore
-  //     for (var localContact in localContacts) {
-  //       if (!firestoreContacts.any((remote) => remote.id == localContact.id)) {
-  //         await contactBox.delete(localContact.id);
-  //       }
-  //     }
-
-  //     contacts.value = allContacts;
-  //     if (snapshot.docs.isNotEmpty) lastVisible = snapshot.docs.last;
-  //   } catch (e) {
-  //     contacts.value = contactBox.values.toList();
-  //     Get.snackbar('Offline Mode', 'Loaded contacts from local storage.');
-  //   } finally {
-  //     filterContacts();
-  //     isFetching.value = false;
-  //   }
-  // }
-  Future<void> fetchContacts() async {
+Future<void> fetchContacts() async {
   if (isFetching.value) return;
   isFetching.value = true;
 
   try {
+    // ✅ Check internet connection
+    final connectivityResult = await Connectivity().checkConnectivity();
+    final hasInternet = connectivityResult != ConnectivityResult.none;
+
     final user = authController.firebaseUser.value;
     if (user == null) throw Exception('User not authenticated');
 
-    // Check if user is admin
-    final userDoc = await firestore.collection('users').doc(user.uid).get();
-    final isAdmin = userDoc.exists && userDoc.data()?['role'] == 'admin';
+    if (hasInternet) {
+      // 🔹 Online: Fetch from Firestore
+      final userDoc = await firestore.collection('users').doc(user.uid).get();
+      final isAdmin = userDoc.exists && userDoc.data()?['role'] == 'admin';
 
-    Query<Map<String, dynamic>> query = firestore.collection('contacts').limit(pageSize);
+      Query<Map<String, dynamic>> query =
+          firestore.collection('contacts').limit(pageSize);
 
-    // Fetch contacts from Firestore
-    final snapshot = await query.get();
-    final firestoreContacts = snapshot.docs
-        .map((doc) => Contact.fromMap(doc.id, doc.data()))
-        .toList();
+      final snapshot = await query.get();
+      final firestoreContacts = snapshot.docs
+          .map((doc) => Contact.fromMap(doc.id, doc.data()))
+          .toList();
 
-    // Load local Hive contacts
-    final localContacts = contactBox.values.toList();
+      // 🔹 Load local contacts
+      final localContacts = contactBox.values.toList();
 
-    // Keep all local-only contacts (imported CSV/VCF or unsynced)
-    final localOnlyContacts = localContacts
-        .where((local) => !local.isSynced || !firestoreContacts.any((f) => f.id == local.id))
-        .toList();
+      // 🔹 Keep local-only contacts
+      final localOnlyContacts = localContacts
+          .where((local) =>
+              !local.isSynced ||
+              !firestoreContacts.any((f) => f.id == local.id))
+          .toList();
 
-    // Merge Firestore + local-only contacts
-    final allContacts = [...firestoreContacts, ...localOnlyContacts];
+      // 🔹 Merge both
+      final allContacts = [...firestoreContacts, ...localOnlyContacts];
 
-    // Update Hive: add/update Firestore contacts
-    for (var contact in firestoreContacts) {
-      await contactBox.put(contact.id, contact);
-    }
-
-    // Optional: remove only Hive contacts that were synced but no longer exist in Firestore
-    for (var localContact in localContacts) {
-      if (localContact.isSynced && !firestoreContacts.any((f) => f.id == localContact.id)) {
-        await contactBox.delete(localContact.id);
+      // 🔹 Update Hive cache
+      for (var contact in firestoreContacts) {
+        await contactBox.put(contact.id, contact);
       }
+
+      // 🔹 Remove deleted Firestore contacts
+      for (var localContact in localContacts) {
+        if (localContact.isSynced &&
+            !firestoreContacts.any((f) => f.id == localContact.id)) {
+          await contactBox.delete(localContact.id);
+        }
+      }
+
+      contacts.value = allContacts;
+
+      // Save pagination state
+      if (snapshot.docs.isNotEmpty) lastVisible = snapshot.docs.last;
+
+      Get.snackbar('Online Sync', 'Contacts updated from Firebase.');
+    } else {
+      // 🔹 Offline: load from local Hive
+      contacts.value = contactBox.values.toList();
+      Get.snackbar('Offline Mode', 'Loaded contacts from local storage.');
     }
-
-    // Update in-memory contacts list
-    contacts.value = allContacts;
-
-    // Save last visible for pagination
-    if (snapshot.docs.isNotEmpty) lastVisible = snapshot.docs.last;
-
   } catch (e) {
-    // Load local contacts in case of offline
+    // 🔹 Fallback to local data if any error occurs
     contacts.value = contactBox.values.toList();
     Get.snackbar('Offline Mode', 'Loaded contacts from local storage.');
   } finally {
@@ -159,43 +126,54 @@ RxList<Contact> deletedContacts = <Contact>[].obs;
   }
 }
 
-
   Future<void> syncSelectedContacts() async {
-    final List<Contact> unsyncedContacts = selectedContacts
-        .where((c) => !c.isSynced && c.ownerId.isNotEmpty)
-        .toList();
+  // ✅ Restrict to admins only
+  if (authController.userRole.value != 'admin') {
+    Get.snackbar(
+      'Permission Denied',
+      'Only admins can sync contacts to Firebase.',
+    );
+    return;
+  }
 
-    if (unsyncedContacts.isEmpty) {
-      Get.snackbar('No Changes', 'All selected contacts are already synced.');
-      return;
-    }
+  final List<Contact> unsyncedContacts = selectedContacts
+      .where((c) => !c.isSynced && c.ownerId.isNotEmpty)
+      .toList();
 
-    int successCount = 0;
-    List<String> failedContactNames = [];
+  if (unsyncedContacts.isEmpty) {
+    Get.snackbar('No Changes', 'All selected contacts are already synced.');
+    return;
+  }
 
-    for (final contact in unsyncedContacts) {
-      try {
-        await syncContactToFirestore(contact);
-        successCount++;
-      } catch (e) {
-        failedContactNames.add(contact.name);
-        print('Sync failed for contact [${contact.id}]: $e');
-      }
-    }
+  int successCount = 0;
+  List<String> failedContactNames = [];
 
-    if (successCount > 0) {
-      Get.snackbar(
-          'Sync Complete', '$successCount contact(s) synced successfully.');
-    }
-
-    if (failedContactNames.isNotEmpty) {
-      Get.snackbar(
-        'Sync Failed',
-        'Could not sync: ${failedContactNames.join(', ')}',
-        duration: const Duration(seconds: 5),
-      );
+  for (final contact in unsyncedContacts) {
+    try {
+      await syncContactToFirestore(contact);
+      successCount++;
+    } catch (e) {
+      failedContactNames.add(contact.name);
+      print('Sync failed for contact [${contact.id}]: $e');
     }
   }
+
+  if (successCount > 0) {
+    Get.snackbar(
+      'Sync Complete',
+      '$successCount contact(s) synced successfully.',
+    );
+  }
+
+  if (failedContactNames.isNotEmpty) {
+    Get.snackbar(
+      'Sync Failed',
+      'Could not sync: ${failedContactNames.join(', ')}',
+      duration: const Duration(seconds: 5),
+    );
+  }
+}
+
 
   Future<void> loadMoreContacts() async {
     if (loadingMore.value || lastVisible == null) return;
@@ -234,22 +212,49 @@ RxList<Contact> deletedContacts = <Contact>[].obs;
     }
   }
 
+
   Future<void> addContact(Contact contact) async {
-    final ownerId = authController.userRole.value == 'admin'
-        ? 'admin'
-        : authController.firebaseUser.value!.uid;
+    try {
+      final user = authController.firebaseUser.value;
+      if (user == null) throw Exception('User not authenticated');
 
-    final localId = UniqueKey().toString();
-    final updatedContact = contact.copyWith(
-      id: localId,
-      ownerId: ownerId,
-      isSynced: false,
-    );
+      // Determine who owns the contact (admin or user)
+      final ownerId = authController.userRole.value == 'admin'
+          ? 'admin'
+          : user.uid;
 
-    contacts.add(updatedContact);
-    await contactBox.put(localId, updatedContact);
-    filterContacts();
+      // Generate a local-only unique ID using uuid
+      final localId = const Uuid().v4();
+
+      // Create a local version of the contact
+      final localContact = contact.copyWith(
+        id: localId,
+        ownerId: ownerId,
+        isSynced: false, // Always false since it's not synced yet
+      );
+
+      // ✅ Save to local Hive storage
+      await contactBox.put(localId, localContact);
+
+      // ✅ Update in-memory list (reactive)
+      contacts.add(localContact);
+      filterContacts();
+
+      // ✅ Notify user
+      Get.snackbar(
+        'Saved Offline',
+        'Contact saved locally to your device.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to add contact: $e',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
+
 
   Future<void> editContact({
     required Contact contact,
@@ -286,15 +291,10 @@ RxList<Contact> deletedContacts = <Contact>[].obs;
     await contactBox.put(updatedContact.id, updatedContact);
     filterContacts();
 
-    // Auto-sync edit
-    syncContactToFirestore(updatedContact);
+    // Auto-sync edit (awaited)
+    await syncContactToFirestore(updatedContact);
   }
 
-  // Future<void> deleteContact(Contact contact) async {
-  //   contacts.removeWhere((c) => c.id == contact.id);
-  //   await contactBox.delete(contact.id);
-  //   filterContacts();
-  // }
 
   Future<void> deleteContact(Contact contact) async {
   contacts.removeWhere((c) => c.id == contact.id);
@@ -354,127 +354,156 @@ RxList<Contact> deletedContacts = <Contact>[].obs;
       isFavorite: updatedStatus,
     );
 
-    contacts[contacts.indexWhere((c) => c.id == contact.id)] = updatedContact;
+    final idx = contacts.indexWhere((c) => c.id == contact.id);
+    if (idx != -1) {
+      contacts[idx] = updatedContact;
+    }
     await contactBox.put(updatedContact.id, updatedContact);
     filterContacts();
   }
 
   Future<void> syncContactToFirestore(Contact contact) async {
     try {
-      final docRef = contact.id.length < 20
-          ? null
-          : firestore.collection('contacts').doc(contact.id);
+      // ✅ Restrict to admins only
+      if (authController.userRole.value != 'admin') {
+        Get.snackbar(
+          'Permission Denied',
+          'Only admins can sync contacts to Firebase.',
+        );
+        return;
+      }
+
+      // 🔹 Determine if this is a new or existing contact in Firestore
+      // Use uuid v4 length (36) to check for local vs remote, or check isSynced
+      final isLocal = !contact.isSynced;
+      final docRef = !isLocal
+          ? firestore.collection('contacts').doc(contact.id)
+          : null;
 
       if (docRef == null) {
-        final newDoc =
-            await firestore.collection('contacts').add(contact.toMap());
-        final synced = contact.copyWith(id: newDoc.id, isSynced: true);
+        // 🔹 Add new contact to Firestore
+        final newDoc = await firestore.collection('contacts').add(
+              contact.copyWith(ownerId: 'admin', isSynced: true).toMap(),
+            );
+
+        final synced = contact.copyWith(
+          id: newDoc.id,
+          ownerId: 'admin',
+          isSynced: true,
+        );
 
         contacts.removeWhere((c) => c.id == contact.id);
         contacts.add(synced);
         await contactBox.delete(contact.id);
         await contactBox.put(synced.id, synced);
       } else {
-        await docRef.set(contact.toMap());
-        final synced = contact.copyWith(isSynced: true);
-        contacts[contacts.indexWhere((c) => c.id == contact.id)] = synced;
+        // 🔹 Update existing contact in Firestore
+        await docRef.set(
+          contact.copyWith(ownerId: 'admin', isSynced: true).toMap(),
+        );
+
+        final synced = contact.copyWith(ownerId: 'admin', isSynced: true);
+        final idx = contacts.indexWhere((c) => c.id == contact.id);
+        if (idx != -1) {
+          contacts[idx] = synced;
+        }
         await contactBox.put(synced.id, synced);
       }
 
       filterContacts();
+      Get.snackbar('Success', 'Contact synced to Firebase as admin!');
     } catch (e) {
       print('Sync failed for contact ${contact.id}: $e');
+      Get.snackbar('Error', 'Failed to sync contact: $e');
     }
   }
 
-Future<Contact> _unsyncContactAndReturn(Contact contact) async {
-  try {
-    // Step 1: Delete from Firestore if synced
-    if (contact.isSynced && contact.id.length >= 20) {
-      await firestore.collection('contacts').doc(contact.id).delete();
+/// ---------------------------------------------------------------------------
+///  FIXED UNSYNC / UNPUBLISH LOGIC
+/// ---------------------------------------------------------------------------
+
+  Future<Contact> _unsyncContactAndReturn(Contact contact) async {
+    try {
+      // Delete from Firestore if synced
+      if (contact.isSynced) {
+        await firestore.collection('contacts').doc(contact.id).delete();
+      }
+
+      // Create a new local ID using uuid
+      final String localId = const Uuid().v4();
+
+      // Create local-only unsynced version
+      final Contact unsynced = contact.copyWith(
+        id: localId,
+        isSynced: false,
+        ownerId: authController.firebaseUser.value?.uid ?? '',
+      );
+
+      // Replace in-memory version
+      contacts.removeWhere((c) => c.id == contact.id);
+      contacts.add(unsynced);
+
+      // Replace in Hive
+      await contactBox.delete(contact.id);
+      await contactBox.put(localId, unsynced);
+
+      filterContacts();
+      return unsynced;
+    } catch (e) {
+      print('Unsync failed for contact ${contact.id}: $e');
+      rethrow;
     }
-
-    // Step 2: Generate a new local-only ID
-    final localId = UniqueKey().toString();
-
-    final unsynced = contact.copyWith(
-      id: localId,
-      isSynced: false,
-    );
-
-    // Step 3: Update in-memory contacts
-    contacts.removeWhere((c) => c.id == contact.id);
-    contacts.add(unsynced);
-
-    // Step 4: Update Hive storage
-    await contactBox.delete(contact.id);
-    await contactBox.put(localId, unsynced);
-
-    filterContacts();
-
-    return unsynced;
-  } catch (e) {
-    print('Unsync failed for contact ${contact.id}: $e');
-    rethrow;
   }
-}
 
 Future<void> unsyncContact(Contact contact) async {
   try {
-    final unsynced = await _unsyncContactAndReturn(contact);
+    final Contact updated = await _unsyncContactAndReturn(contact);
 
-    // If contact was selected, replace it with the new local version
+    // Update selection set
     if (selectedContacts.contains(contact)) {
       selectedContacts.remove(contact);
-      selectedContacts.add(unsynced);
+      selectedContacts.add(updated);
     }
 
-    Get.snackbar('Success', 'Contact "${contact.name}" was unsynced.');
+    Get.snackbar('Success', 'Contact "${contact.name}" was unpublished.');
   } catch (e) {
-    Get.snackbar('Error', 'Failed to unsync contact: $e');
+    Get.snackbar('Error', 'Failed to unpublish contact: $e');
   }
 }
 
 Future<void> unsyncSelectedContacts() async {
-  final List<Contact> toUnsync = selectedContacts
-      .where((c) => c.isSynced && c.id.length >= 20) // only synced contacts
-      .toList();
+  final List<Contact> toUnsync =
+      selectedContacts.where((c) => c.isSynced).toList();
 
   if (toUnsync.isEmpty) {
-    Get.snackbar('No Changes', 'All selected contacts are already unsynced.');
+    Get.snackbar('No Changes', 'All selected contacts are already local only.');
     return;
   }
 
   int successCount = 0;
-  List<String> failedContactNames = [];
+  List<String> failed = [];
 
   for (final contact in toUnsync) {
     try {
-      final unsynced = await _unsyncContactAndReturn(contact);
+      final Contact updated = await _unsyncContactAndReturn(contact);
 
-      // Replace old contact in selection
+      // Update selection set
       selectedContacts.remove(contact);
-      selectedContacts.add(unsynced);
+      selectedContacts.add(updated);
 
       successCount++;
     } catch (e) {
-      failedContactNames.add(contact.name);
+      failed.add(contact.name);
     }
   }
 
   if (successCount > 0) {
-    Get.snackbar(
-      'Unsync Complete',
-      '$successCount contact(s) unsynced successfully.',
-    );
+    Get.snackbar('Unpublish Complete',
+        '$successCount contact(s) successfully unpublished.');
   }
 
-  if (failedContactNames.isNotEmpty) {
-    Get.snackbar(
-      'Unsync Failed',
-      'Could not unsync: ${failedContactNames.join(', ')}',
-      duration: const Duration(seconds: 5),
-    );
+  if (failed.isNotEmpty) {
+    Get.snackbar('Unpublish Failed', 'Could not unpublish: ${failed.join(', ')}');
   }
 }
 
@@ -554,8 +583,24 @@ Future<void> unsyncSelectedContacts() async {
     } else {
       final query = searchQuery.value.toLowerCase();
       filteredContacts.value = contacts.where((contact) {
-        return contact.name.toLowerCase().contains(query) ||
-            contact.phone.contains(query);
+        // Search in all string fields
+        bool matches = false;
+        if (contact.name.toLowerCase().contains(query)) matches = true;
+        if (contact.phone.toLowerCase().contains(query)) matches = true;
+        if ((contact.landline ?? '').toLowerCase().contains(query)) matches = true;
+        if (contact.email.toLowerCase().contains(query)) matches = true;
+        if ((contact.whatsapp ?? '').toLowerCase().contains(query)) matches = true;
+        if ((contact.facebook ?? '').toLowerCase().contains(query)) matches = true;
+        if ((contact.instagram ?? '').toLowerCase().contains(query)) matches = true;
+        if ((contact.youtube ?? '').toLowerCase().contains(query)) matches = true;
+        if ((contact.website ?? '').toLowerCase().contains(query)) matches = true;
+        // Search in lists
+        if (contact.phoneNumbers.any((p) => p.toLowerCase().contains(query))) matches = true;
+        if (contact.landlineNumbers.any((l) => l.toLowerCase().contains(query))) matches = true;
+        if (contact.emailAddresses.any((e) => e.toLowerCase().contains(query))) matches = true;
+        // Search in custom fields
+        if (contact.customFields.values.any((v) => v.toLowerCase().contains(query))) matches = true;
+        return matches;
       }).toList();
     }
 
@@ -564,9 +609,7 @@ Future<void> unsyncSelectedContacts() async {
     final Map<String, List<Contact>> grouped = {};
     for (var contact in filteredContacts) {
       final name = contact.name.trim();
-final firstLetter = name.isNotEmpty ? name[0].toUpperCase() : '#';
-
-      // final firstLetter = contact.name[0].toUpperCase();
+      final firstLetter = name.isNotEmpty ? name[0].toUpperCase() : '#';
       grouped.putIfAbsent(firstLetter, () => []).add(contact);
     }
 
@@ -626,7 +669,7 @@ final firstLetter = name.isNotEmpty ? name[0].toUpperCase() : '#';
         updateContact(updated);
       } else {
         // Add new contact
-        final localId = UniqueKey().toString();
+        final localId = const Uuid().v4();
         final newContact = Contact.fromMap(localId, {
           ...data,
           'id': localId,

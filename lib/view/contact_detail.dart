@@ -406,47 +406,47 @@ if (contact.phoneNumbers.isNotEmpty)
             ),
           )),
             /// Email (Admins only)
-            if (isAdmin) ...[
-              _buildOptionalCard(
-                icon: Icons.email,
-                label: 'Email',
-                value: contact.email,
-                onTap: () => OppoFixLauncher.launchEmail(contact.email),
-                color: Colors.red,
-              ),
-              if (contact.emailAddresses.isNotEmpty)
-  ...contact.emailAddresses
-      .skip(contact.importedFromCsv ? 1 : 0) // 👈 skip only if CSV
-      .map((email) => Card(
-            elevation: 4,
-            margin: EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              leading: Icon(Icons.email, color: Colors.red),
-              title: Text(email),
-              subtitle: Text('Email'),
-              onTap: () => OppoFixLauncher.launchEmail(email),
-            ),
-          )),
-            ],
+  //           if (isAdmin) ...[
+  //             _buildOptionalCard(
+  //               icon: Icons.email,
+  //               label: 'Email',
+  //               value: contact.email,
+  //               onTap: () => OppoFixLauncher.launchEmail(contact.email),
+  //               color: Colors.red,
+  //             ),
+  //             if (contact.emailAddresses.isNotEmpty)
+  // ...contact.emailAddresses
+  //     .skip(contact.importedFromCsv ? 1 : 0) // 👈 skip only if CSV
+  //     .map((email) => Card(
+  //           elevation: 4,
+  //           margin: EdgeInsets.symmetric(vertical: 4),
+  //           child: ListTile(
+  //             leading: Icon(Icons.email, color: Colors.red),
+  //             title: Text(email),
+  //             subtitle: Text('Email'),
+  //             onTap: () => OppoFixLauncher.launchEmail(email),
+  //           ),
+  //         )),
+  //           ],
             /// Email
-            // _buildOptionalCard(
-            //   icon: Icons.email,
-            //   label: 'Email',
-            //   value: contact.email,
-            //   onTap: () => OppoFixLauncher.launchEmail(contact.email),
-            //   color: Colors.red,
-            // ),
+            _buildOptionalCard(
+              icon: Icons.email,
+              label: 'Email',
+              value: contact.email,
+              onTap: () => OppoFixLauncher.launchEmail(contact.email),
+              color: Colors.red,
+            ),
 
-            // if (contact.emailAddresses != null)
-            //   ...contact.emailAddresses!.map((email) => Card(
-            //         elevation: 4,
-            //         margin: EdgeInsets.symmetric(vertical: 4),
-            //         child: ListTile(
-            //           leading: Icon(Icons.email, color: Colors.red),
-            //           title: Text(email),
-            //           onTap: () => OppoFixLauncher.launchEmail(email),
-            //         ),
-            //       )),
+            if (contact.emailAddresses != null)
+              ...contact.emailAddresses!.map((email) => Card(
+                    elevation: 4,
+                    margin: EdgeInsets.symmetric(vertical: 4),
+                    child: ListTile(
+                      leading: Icon(Icons.email, color: Colors.red),
+                      title: Text(email),
+                      onTap: () => OppoFixLauncher.launchEmail(email),
+                    ),
+                  )),
 
             /// WhatsApp
             if (contact.whatsapp != null && contact.whatsapp!.isNotEmpty)

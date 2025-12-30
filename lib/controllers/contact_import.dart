@@ -109,7 +109,7 @@ class ContactImportController extends GetxController {
 
           contacts.add(Contact(
             id: '',
-            name: currentVCard.firstName ?? '',
+            name: currentVCard.firstName,
             phone: phoneNumbers.isNotEmpty ? phoneNumbers.first : '',
             landline: null,
             email: emails.isNotEmpty ? emails.first : '',

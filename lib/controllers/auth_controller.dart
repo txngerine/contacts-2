@@ -1,223 +1,586 @@
+// import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:flutter/material.dart';
+// import 'package:get/get.dart';
+
+// class AuthController extends GetxController {
+//   final FirebaseAuth _auth = FirebaseAuth.instance;
+//   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+//   Rxn<User> firebaseUser = Rxn<User>();
+//   RxString userRole = ''.obs;
+//   RxString username = ''.obs;
+//   RxString userEmail = ''.obs;
+//   var isPasswordHidden = true.obs;
+
+
+//   @override
+//   void onInit() {
+//     super.onInit();
+//     firebaseUser.bindStream(_auth.authStateChanges());
+//     ever(firebaseUser, _setInitialScreen);
+//   }
+
+//   // Set initial screen based on user's role
+//   void _setInitialScreen(User? user) async {
+//     if (user == null) {
+//       await _showMaterialSnackbar('Please login first', '/login');
+//     } else {
+//       await fetchUserRole();
+//       await _showMaterialSnackbar('Welcome back!', '/home');
+//     }
+//   }
+
+
+//   void togglePasswordVisibility() {
+//     isPasswordHidden.value = !isPasswordHidden.value;
+//   }
+
+
+//   Future<void> fetchUserRole() async {
+//   if (firebaseUser.value != null) {
+//     try {
+//       final userDoc = await _firestore
+//           .collection('users')
+//           .doc(firebaseUser.value!.uid)
+//           .get();
+//       userRole.value = userDoc['role'] ?? 'user'; // Default to 'user'
+//       username.value = userDoc['username'] ?? 'Guest'; // Default to 'Guest'
+//       userEmail.value=userDoc['email']??'non';
+//     } catch (e) {
+//       await _showMaterialSnackbar('Failed to fetch user details: $e', '/login');
+//     }
+//   }
+// }
+
+//  Future<void> editProfile({
+//     required String updatedUsername,
+//     required String updatedEmail,
+//     String? updatedRole, // Optional, if applicable
+//   }) async {
+//     if (firebaseUser.value == null) {
+//       await _showMaterialSnackbar('User not logged in.', '/login');
+//       return;
+//     }
+
+//     try {
+//       String userId = firebaseUser.value!.uid;
+
+//       // Prepare the updated data
+//       Map<String, dynamic> updatedData = {
+//         'username': updatedUsername,
+//         'email': updatedEmail,
+//       };
+
+//       if (updatedRole != null && userRole.value == 'admin') {
+//         // Only allow role updates if the user is an admin
+//         updatedData['role'] = updatedRole;
+//       }
+
+//       // Update the user data in Firestore
+//       await _firestore.collection('users').doc(userId).update(updatedData);
+
+//       // Update local observable fields
+//       username.value = updatedUsername;
+//       userEmail.value = updatedEmail;
+//       if (updatedRole != null) userRole.value = updatedRole;
+
+//       await _showMaterialSnackbar('Profile updated successfully.', '/home');
+//     } catch (e) {
+//       await _showMaterialSnackbar('Failed to update profile: $e', '/home');
+//     }
+//   }
+
+
+//   // Show Material Snackbar and navigate after a delay
+//   Future<void> _showMaterialSnackbar(String message, String route) async {
+//     // Show Material Snackbar with the provided message
+//     ScaffoldMessenger.of(Get.context!).showSnackBar(
+//       SnackBar(
+//         content: Text(message),
+//         duration: Duration(seconds: 2),
+//         behavior: SnackBarBehavior.floating,
+//       ),
+//     );
+
+//     // Wait for the Snackbar to be visible before navigation
+//     await Future.delayed(Duration(seconds: 2));
+
+//     // Perform the navigation after the delay
+//     Get.offAllNamed(route);
+//   }
+
+//   // Login Method with Error Handling
+//   Future<void> login(String email, String password) async {
+//     try {
+//       if (email.isEmpty || password.isEmpty) {
+//         await _showMaterialSnackbar('Email and password cannot be empty.', '/login');
+//         return;
+//       }
+
+//       await _auth.signInWithEmailAndPassword(email: email, password: password);
+//       await _showMaterialSnackbar('Login successful.', '/home');
+//     } on FirebaseAuthException catch (e) {
+//       String errorMessage;
+
+//       // Handle specific FirebaseAuthException cases
+//       if (e.code == 'wrong-password') {
+//         errorMessage = 'Incorrect password.';
+//       } else if (e.code == 'user-not-found') {
+//         errorMessage = 'No user found with this email.';
+//       } else if (e.code == 'invalid-email') {
+//         errorMessage = 'Invalid email format.';
+//       } else if (e.code == 'network-request-failed') {
+//         errorMessage = 'Network error. Please check your connection.';
+//       } else if (e.code == 'credential-too-old') {
+//         errorMessage = 'The supplied auth credential is incorrect, malformed, or has expired.';
+//       } else {
+//         errorMessage = 'An error occurred: ${e.message}';
+//       }
+
+//       // Show the error message in the Material Snackbar
+//       await _showMaterialSnackbar(errorMessage, '/login');
+//     } catch (e) {
+//       await _showMaterialSnackbar('Unexpected error occurred: $e', '/login');
+//     }
+//   }
+
+//   // Login using username (looks up email by username in Firestore)
+//   Future<void> loginWithUsername(String username, String password) async {
+//     try {
+//       if (username.isEmpty || password.isEmpty) {
+//         await _showMaterialSnackbar('Username and password cannot be empty.', '/login');
+//         return;
+//       }
+
+//       // Find user document by username
+//       final query = await _firestore
+//           .collection('users')
+//           .where('username', isEqualTo: username)
+//           .limit(1)
+//           .get();
+
+//       if (query.docs.isEmpty) {
+//         await _showMaterialSnackbar('No user found with this username.', '/login');
+//         return;
+//       }
+
+//       final userDoc = query.docs.first;
+//       final userEmailFromDb = (userDoc.data() as Map<String, dynamic>)['email'] ?? '';
+
+//       if (userEmailFromDb == null || userEmailFromDb.toString().isEmpty) {
+//         await _showMaterialSnackbar('No email associated with this username.', '/login');
+//         return;
+//       }
+
+//       await _auth.signInWithEmailAndPassword(email: userEmailFromDb, password: password);
+//       await _showMaterialSnackbar('Login successful.', '/home');
+//     } on FirebaseAuthException catch (e) {
+//       String errorMessage;
+
+//       if (e.code == 'wrong-password') {
+//         errorMessage = 'Incorrect password.';
+//       } else if (e.code == 'user-not-found') {
+//         errorMessage = 'No user found with this email.';
+//       } else if (e.code == 'invalid-email') {
+//         errorMessage = 'Invalid email format.';
+//       } else if (e.code == 'network-request-failed') {
+//         errorMessage = 'Network error. Please check your connection.';
+//       } else if (e.code == 'credential-too-old') {
+//         errorMessage = 'The supplied auth credential is incorrect, malformed, or has expired.';
+//       } else {
+//         errorMessage = 'An error occurred: ${e.message}';
+//       }
+
+//       await _showMaterialSnackbar(errorMessage, '/login');
+//     } catch (e) {
+//       await _showMaterialSnackbar('Unexpected error occurred: $e', '/login');
+//     }
+//   }
+
+//   // Send password reset email
+//   Future<void> sendPasswordReset(String email) async {
+//     try {
+//       if (email.isEmpty) {
+//         await _showMaterialSnackbar('Please provide your email.', '/login');
+//         return;
+//       }
+
+//       if (!GetUtils.isEmail(email)) {
+//         await _showMaterialSnackbar('Please enter a valid email.', '/login');
+//         return;
+//       }
+
+//       await _auth.sendPasswordResetEmail(email: email);
+//       await _showMaterialSnackbar('Password reset email sent. Check your inbox.', '/login');
+//     } on FirebaseAuthException catch (e) {
+//       String errorMessage;
+//       if (e.code == 'user-not-found') {
+//         errorMessage = 'No user found with this email.';
+//       } else if (e.code == 'invalid-email') {
+//         errorMessage = 'Invalid email address.';
+//       } else if (e.code == 'network-request-failed') {
+//         errorMessage = 'Network error. Please check your connection.';
+//       } else {
+//         errorMessage = 'Failed to send reset email: ${e.message}';
+//       }
+
+//       await _showMaterialSnackbar(errorMessage, '/login');
+//     } catch (e) {
+//       await _showMaterialSnackbar('Unexpected error occurred: $e', '/login');
+//     }
+//   }
+
+//   Future<void> signup(String email, String password, String role, String username) async {
+//   try {
+//     if (username.isEmpty || email.isEmpty || password.isEmpty || role.isEmpty) {
+//       await _showMaterialSnackbar('All fields are required.', '/signup');
+//       return;
+//     }
+
+//     if (!GetUtils.isEmail(email)) {
+//       await _showMaterialSnackbar('Please enter a valid email.', '/signup');
+//       return;
+//     }
+
+//     if (password.length < 6) {
+//       await _showMaterialSnackbar('Password must be at least 6 characters.', '/signup');
+//       return;
+//     }
+
+//     UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+//       email: email,
+//       password: password,
+//     );
+
+//     // Store the user data in Firestore
+//     await _firestore.collection('users').doc(userCredential.user!.uid).set({
+//       'username': username,
+//       'email': email,
+//       'role': role,
+//     });
+
+//     await _showMaterialSnackbar('Signup successful.', '/home');
+//   } on FirebaseAuthException catch (e) {
+//     String errorMessage;
+
+//     switch (e.code) {
+//       case 'email-already-in-use':
+//         errorMessage = 'This email is already in use.';
+//         break;
+//       case 'invalid-email':
+//         errorMessage = 'Invalid email format.';
+//         break;
+//       case 'weak-password':
+//         errorMessage = 'Password is too weak.';
+//         break;
+//       default:
+//         errorMessage = 'An error occurred: ${e.message}';
+//     }
+
+//     await _showMaterialSnackbar(errorMessage, '/signup');
+//   } catch (e) {
+//     await _showMaterialSnackbar('Unexpected error occurred: $e', '/signup');
+//   }
+// }
+
+
+//   // Logout Method with Error Handling
+//   void logout() async {
+//     try {
+//       await _auth.signOut();
+//       await _showMaterialSnackbar('Logout successful.', '/login');
+//     } catch (e) {
+//       await _showMaterialSnackbar('Failed to log out: $e', '/login');
+//     }
+//   }
+
+//   // Method to check if the current user is an admin
+//   bool get isAdmin {
+//     return userRole.value == 'admin';
+//   }
+
+//   // Method to change the role of a user (Only admin should have this privilege)
+//   Future<void> changeUserRole(String userId, String newRole) async {
+//     if (!isAdmin) {
+//       await _showMaterialSnackbar('You are not authorized to perform this action.', '/home');
+//       return;
+//     }
+
+//     try {
+//       await _firestore.collection('users').doc(userId).update({
+//         'role': newRole,
+//       });
+//       await _showMaterialSnackbar('User role updated successfully.', '/home');
+//     } catch (e) {
+//       await _showMaterialSnackbar('Failed to update user role: $e', '/home');
+//     }
+//   }
+//   // Delete Profile Method with Firestore and FirebaseAuth cleanup
+// Future<void> deleteProfile() async {
+//   if (firebaseUser.value == null) {
+//     await _showMaterialSnackbar('User not logged in.', '/login');
+//     return;
+//   }
+
+//   try {
+//     String userId = firebaseUser.value!.uid;
+
+//     // Delete user data from Firestore
+//     await _firestore.collection('users').doc(userId).delete();
+
+//     // Delete user account from Firebase Authentication
+//     await firebaseUser.value!.delete();
+
+//     await _showMaterialSnackbar('Profile deleted successfully.', '/login');
+//   } on FirebaseAuthException catch (e) {
+//     // Handle re-authentication requirement
+//     if (e.code == 'requires-recent-login') {
+//       await _showMaterialSnackbar(
+//         'Please log in again before deleting your account.',
+//         '/login',
+//       );
+//     } else {
+//       await _showMaterialSnackbar('Failed to delete profile: ${e.message}', '/home');
+//     }
+//   } catch (e) {
+//     await _showMaterialSnackbar('Unexpected error: $e', '/home');
+//   }
+// }
+
+// }
+
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class AuthController extends GetxController {
+  // Firebase instances
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  Rxn<User> firebaseUser = Rxn<User>();
-  RxString userRole = ''.obs;
-  RxString username = ''.obs;
-  RxString userEmail = ''.obs;
-  var isPasswordHidden = true.obs;
+  // Reactive user state
+  final Rxn<User> firebaseUser = Rxn<User>();
+  final RxString userRole = 'user'.obs;
+  final RxString username = 'Guest'.obs;
+  final RxString userEmail = ''.obs;
+  final RxBool isPasswordHidden = true.obs;
 
+  // -------------------- LIFECYCLE --------------------
 
-  @override
-  void onInit() {
-    super.onInit();
-    firebaseUser.bindStream(_auth.authStateChanges());
-    ever(firebaseUser, _setInitialScreen);
-  }
-
-  // Set initial screen based on user's role
-  void _setInitialScreen(User? user) async {
-    if (user == null) {
-      await _showMaterialSnackbar('Please login first', '/login');
-    } else {
-      await fetchUserRole();
-      await _showMaterialSnackbar('Welcome back!', '/home');
-    }
-  }
-
-
-  void togglePasswordVisibility() {
-    isPasswordHidden.value = !isPasswordHidden.value;
-  }
-
-
-  Future<void> fetchUserRole() async {
-  if (firebaseUser.value != null) {
-    try {
-      final userDoc = await _firestore
-          .collection('users')
-          .doc(firebaseUser.value!.uid)
-          .get();
-      userRole.value = userDoc['role'] ?? 'user'; // Default to 'user'
-      username.value = userDoc['username'] ?? 'Guest'; // Default to 'Guest'
-      userEmail.value=userDoc['email']??'non';
-    } catch (e) {
-      await _showMaterialSnackbar('Failed to fetch user details: $e', '/login');
-    }
-  }
+ @override
+void onInit() {
+  super.onInit();
+  firebaseUser.bindStream(_auth.authStateChanges());
+  ever(firebaseUser, _onAuthChanged);
 }
 
- Future<void> editProfile({
-    required String updatedUsername,
-    required String updatedEmail,
-    String? updatedRole, // Optional, if applicable
-  }) async {
-    if (firebaseUser.value == null) {
-      await _showMaterialSnackbar('User not logged in.', '/login');
+
+  Future<void> _onAuthChanged(User? user) async {
+    if (user == null) {
+      Get.offAllNamed('/login');
+    } else {
+      await fetchUserData();
+      Get.offAllNamed('/home');
+    }
+  }
+
+  // -------------------- UI HELPERS --------------------
+
+  void togglePasswordVisibility() {
+    isPasswordHidden.toggle();
+  }
+
+  void _showSnackbar(String message) {
+    if (Get.context == null) return;
+    ScaffoldMessenger.of(Get.context!).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  // -------------------- USER DATA --------------------
+
+  Future<void> fetchUserData() async {
+    try {
+      final uid = firebaseUser.value!.uid;
+      final doc = await _firestore.collection('users').doc(uid).get();
+
+      if (!doc.exists) return;
+
+      final data = doc.data()!;
+      userRole.value = data['role'] ?? 'user';
+      username.value = data['username'] ?? 'Guest';
+      userEmail.value = data['email'] ?? '';
+    } catch (e) {
+      _showSnackbar('Failed to load user data');
+    }
+  }
+
+  // -------------------- AUTH --------------------
+
+  Future<void> login(String email, String password) async {
+    if (email.isEmpty || password.isEmpty) {
+      _showSnackbar('Email and password required');
       return;
     }
 
     try {
-      String userId = firebaseUser.value!.uid;
+      await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+    } on FirebaseAuthException catch (e) {
+      _showSnackbar(_mapAuthError(e));
+    }
+  }
 
-      // Prepare the updated data
-      Map<String, dynamic> updatedData = {
+  /// ✅ LOGIN WITH USERNAME (FIXED)
+  Future<void> loginWithUsername(String inputUsername, String password) async {
+    if (inputUsername.isEmpty || password.isEmpty) {
+      _showSnackbar('Username and password required');
+      return;
+    }
+
+    try {
+      final query = await _firestore
+          .collection('users')
+          .where('username', isEqualTo: inputUsername)
+          .limit(1)
+          .get();
+
+      if (query.docs.isEmpty) {
+        _showSnackbar('Username not found');
+        return;
+      }
+
+      final email = query.docs.first.data()['email'];
+      if (email == null || email.toString().isEmpty) {
+        _showSnackbar('No email linked to username');
+        return;
+      }
+
+      await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+    } on FirebaseAuthException catch (e) {
+      _showSnackbar(_mapAuthError(e));
+    }
+  }
+
+  Future<void> signup(
+    String email,
+    String password,
+    String role,
+    String usernameInput,
+  ) async {
+    if (email.isEmpty ||
+        password.isEmpty ||
+        role.isEmpty ||
+        usernameInput.isEmpty) {
+      _showSnackbar('All fields are required');
+      return;
+    }
+
+    try {
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      await _firestore
+          .collection('users')
+          .doc(credential.user!.uid)
+          .set({
+        'email': email,
+        'username': usernameInput,
+        'role': role,
+      });
+    } on FirebaseAuthException catch (e) {
+      _showSnackbar(_mapAuthError(e));
+    }
+  }
+
+  Future<void> sendPasswordReset(String email) async {
+    if (!GetUtils.isEmail(email)) {
+      _showSnackbar('Enter a valid email');
+      return;
+    }
+
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+      _showSnackbar('Password reset email sent');
+    } on FirebaseAuthException catch (e) {
+      _showSnackbar(_mapAuthError(e));
+    }
+  }
+
+  Future<void> logout() async {
+    await _auth.signOut();
+  }
+
+  // -------------------- PROFILE --------------------
+
+  Future<void> editProfile({
+    required String updatedUsername,
+    required String updatedEmail,
+    String? updatedRole,
+  }) async {
+    if (firebaseUser.value == null) return;
+
+    try {
+      final uid = firebaseUser.value!.uid;
+
+      final data = {
         'username': updatedUsername,
         'email': updatedEmail,
       };
 
-      if (updatedRole != null && userRole.value == 'admin') {
-        // Only allow role updates if the user is an admin
-        updatedData['role'] = updatedRole;
+      if (updatedRole != null && isAdmin) {
+        data['role'] = updatedRole;
       }
 
-      // Update the user data in Firestore
-      await _firestore.collection('users').doc(userId).update(updatedData);
+      await _firestore.collection('users').doc(uid).update(data);
 
-      // Update local observable fields
       username.value = updatedUsername;
       userEmail.value = updatedEmail;
       if (updatedRole != null) userRole.value = updatedRole;
 
-      await _showMaterialSnackbar('Profile updated successfully.', '/home');
+      _showSnackbar('Profile updated');
     } catch (e) {
-      await _showMaterialSnackbar('Failed to update profile: $e', '/home');
+      _showSnackbar('Profile update failed');
     }
   }
 
-
-  // Show Material Snackbar and navigate after a delay
-  Future<void> _showMaterialSnackbar(String message, String route) async {
-    // Show Material Snackbar with the provided message
-    ScaffoldMessenger.of(Get.context!).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-
-    // Wait for the Snackbar to be visible before navigation
-    await Future.delayed(Duration(seconds: 2));
-
-    // Perform the navigation after the delay
-    Get.offAllNamed(route);
-  }
-
-  // Login Method with Error Handling
-  Future<void> login(String email, String password) async {
+  Future<void> deleteProfile() async {
     try {
-      if (email.isEmpty || password.isEmpty) {
-        await _showMaterialSnackbar('Email and password cannot be empty.', '/login');
-        return;
-      }
+      final uid = firebaseUser.value!.uid;
 
-      await _auth.signInWithEmailAndPassword(email: email, password: password);
-      await _showMaterialSnackbar('Login successful.', '/home');
+      await _firestore.collection('users').doc(uid).delete();
+      await firebaseUser.value!.delete();
+
+      Get.offAllNamed('/login');
     } on FirebaseAuthException catch (e) {
-      String errorMessage;
-
-      // Handle specific FirebaseAuthException cases
-      if (e.code == 'wrong-password') {
-        errorMessage = 'Incorrect password.';
-      } else if (e.code == 'user-not-found') {
-        errorMessage = 'No user found with this email.';
-      } else if (e.code == 'invalid-email') {
-        errorMessage = 'Invalid email format.';
-      } else if (e.code == 'network-request-failed') {
-        errorMessage = 'Network error. Please check your connection.';
-      } else if (e.code == 'credential-too-old') {
-        errorMessage = 'The supplied auth credential is incorrect, malformed, or has expired.';
+      if (e.code == 'requires-recent-login') {
+        _showSnackbar('Please login again');
       } else {
-        errorMessage = 'An error occurred: ${e.message}';
+        _showSnackbar(e.message ?? 'Delete failed');
       }
-
-      // Show the error message in the Material Snackbar
-      await _showMaterialSnackbar(errorMessage, '/login');
-    } catch (e) {
-      await _showMaterialSnackbar('Unexpected error occurred: $e', '/login');
     }
   }
 
-  Future<void> signup(String email, String password, String role, String username) async {
-  try {
-    if (username.isEmpty || email.isEmpty || password.isEmpty || role.isEmpty) {
-      await _showMaterialSnackbar('All fields are required.', '/signup');
-      return;
-    }
+  // -------------------- ADMIN --------------------
 
-    if (!GetUtils.isEmail(email)) {
-      await _showMaterialSnackbar('Please enter a valid email.', '/signup');
-      return;
-    }
+  bool get isAdmin => userRole.value == 'admin';
 
-    if (password.length < 6) {
-      await _showMaterialSnackbar('Password must be at least 6 characters.', '/signup');
-      return;
-    }
-
-    UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
-
-    // Store the user data in Firestore
-    await _firestore.collection('users').doc(userCredential.user!.uid).set({
-      'username': username,
-      'email': email,
-      'role': role,
-    });
-
-    await _showMaterialSnackbar('Signup successful.', '/home');
-  } on FirebaseAuthException catch (e) {
-    String errorMessage;
-
-    switch (e.code) {
-      case 'email-already-in-use':
-        errorMessage = 'This email is already in use.';
-        break;
-      case 'invalid-email':
-        errorMessage = 'Invalid email format.';
-        break;
-      case 'weak-password':
-        errorMessage = 'Password is too weak.';
-        break;
-      default:
-        errorMessage = 'An error occurred: ${e.message}';
-    }
-
-    await _showMaterialSnackbar(errorMessage, '/signup');
-  } catch (e) {
-    await _showMaterialSnackbar('Unexpected error occurred: $e', '/signup');
-  }
-}
-
-
-  // Logout Method with Error Handling
-  void logout() async {
-    try {
-      await _auth.signOut();
-      await _showMaterialSnackbar('Logout successful.', '/login');
-    } catch (e) {
-      await _showMaterialSnackbar('Failed to log out: $e', '/login');
-    }
-  }
-
-  // Method to check if the current user is an admin
-  bool get isAdmin {
-    return userRole.value == 'admin';
-  }
-
-  // Method to change the role of a user (Only admin should have this privilege)
   Future<void> changeUserRole(String userId, String newRole) async {
     if (!isAdmin) {
-      await _showMaterialSnackbar('You are not authorized to perform this action.', '/home');
+      _showSnackbar('Unauthorized');
       return;
     }
 
@@ -225,9 +588,31 @@ class AuthController extends GetxController {
       await _firestore.collection('users').doc(userId).update({
         'role': newRole,
       });
-      await _showMaterialSnackbar('User role updated successfully.', '/home');
+      _showSnackbar('Role updated');
     } catch (e) {
-      await _showMaterialSnackbar('Failed to update user role: $e', '/home');
+      _showSnackbar('Failed to update role');
+    }
+  }
+
+  // -------------------- ERROR MAP --------------------
+
+  String _mapAuthError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'wrong-password':
+        return 'Incorrect password';
+      case 'user-not-found':
+        return 'User not found';
+      case 'email-already-in-use':
+        return 'Email already in use';
+      case 'invalid-email':
+        return 'Invalid email';
+      case 'weak-password':
+        return 'Weak password';
+      case 'network-request-failed':
+        return 'Network error';
+      default:
+        return e.message ?? 'Authentication error';
     }
   }
 }
+

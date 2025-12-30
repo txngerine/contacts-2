@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/auth_controller.dart';
+import 'forgot_password_view.dart';
 
 class LoginView extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();
-  final TextEditingController emailController = TextEditingController();
+  final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
@@ -34,12 +35,12 @@ class LoginView extends StatelessWidget {
 
                   const SizedBox(height: 24),
 
-                  // Email Input
+                  // Username Input
                   TextFormField(
-                    controller: emailController,
+                    controller: usernameController,
                     decoration: InputDecoration(
-                      hintText: 'ex: jon.smith@email.com',
-                      labelText: 'Email',
+                      hintText: 'ex: jon_smith',
+                      labelText: 'Username',
                       labelStyle: const TextStyle(color: Colors.black54),
                       hintStyle: const TextStyle(color: Colors.grey),
                       filled: true,
@@ -57,14 +58,10 @@ class LoginView extends StatelessWidget {
                         borderSide: const BorderSide(color: Colors.blue),
                       ),
                     ),
-                    keyboardType: TextInputType.emailAddress,
                     style: const TextStyle(fontSize: 16),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Email is required';
-                      }
-                      if (!GetUtils.isEmail(value.trim())) {
-                        return 'Enter a valid email address';
+                        return 'Username is required';
                       }
                       return null;
                     },
@@ -117,7 +114,20 @@ class LoginView extends StatelessWidget {
                         },
                       )),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
+
+                  // Forgot password button
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Get.to(() => ForgotPasswordView());
+                      },
+                      child: const Text('Forgot password?', style: TextStyle(color: Colors.blue)),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
 
                   // Login Button
                   SizedBox(
@@ -125,9 +135,9 @@ class LoginView extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: () {
                         if (_formKey.currentState!.validate()) {
-                          final email = emailController.text.trim();
+                          final username = usernameController.text.trim();
                           final password = passwordController.text.trim();
-                          authController.login(email, password);
+                          authController.loginWithUsername(username, password);
                           Get.snackbar(
                             'Login',
                             'Attempting to log you in...',

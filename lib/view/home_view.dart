@@ -119,8 +119,6 @@ class HomeView extends StatelessWidget {
                 onSelected: (value) {
                   if (value == 'import') {
                     Get.to(ContactImportView());
-                  } else if (value == 'profile') {
-                    Get.to(ProfileView());
                   } else if (value == 'Privacy and Policy') {
                     Get.to(PrivacyPolicyPage());
                   } else if (value == 'terms and condition') {
@@ -163,10 +161,7 @@ class HomeView extends StatelessWidget {
                       value: 'import',
                       child: Text('Import Contacts'),
                     ),
-                  PopupMenuItem(
-                    value: 'profile',
-                    child: Text('Profile Details'),
-                  ),
+                  
                   PopupMenuItem(
                     value: 'vcf',
                     child: Text('Import VCF Contacts'),

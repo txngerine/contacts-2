@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app requires access to your photo library to let you choose photos for contacts and attachments.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>This app needs access to your contacts to import, select, and link contacts for messaging and address-book features.</string>
 </dict>
 </plist>

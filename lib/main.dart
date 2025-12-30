@@ -41,7 +41,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Kor Links',
+      title: 'KorLinks',
       theme: ThemeData(
         primaryColor: Colors.white,
         scaffoldBackgroundColor: Colors.white,

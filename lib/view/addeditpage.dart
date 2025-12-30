@@ -329,6 +329,7 @@ class AddEditContactPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildCurvedTextField(
+                  context: context,
                   controller: nameController,
                   labelText: 'Full Name',
                   hintText: 'Enter full name',
@@ -338,6 +339,7 @@ class AddEditContactPage extends StatelessWidget {
                 ),
                 SizedBox(height: 16),
                 _buildCurvedTextField(
+                  context: context,
                   controller: phoneController,
                   labelText: 'Phone Number',
                   hintText: 'Enter phone number',
@@ -356,6 +358,7 @@ class AddEditContactPage extends StatelessWidget {
                         children: [
                           Expanded(
                             child: _buildCurvedTextField(
+                              context: context,
                               controller: controller,
                               labelText: 'Additional Phone',
                               hintText: 'Enter additional phone',
@@ -383,6 +386,7 @@ class AddEditContactPage extends StatelessWidget {
                 ),
                 SizedBox(height: 16),
                 _buildCurvedTextField(
+                  context: context,
                   controller: landlineController,
                   labelText: 'LandLine Number',
                   hintText: 'Enter LandLine number',
@@ -401,6 +405,7 @@ class AddEditContactPage extends StatelessWidget {
                         children: [
                           Expanded(
                             child: _buildCurvedTextField(
+                              context: context,
                               controller: controller,
                               labelText: 'Additional Landline',
                               hintText: 'Enter additional Landline',
@@ -428,6 +433,7 @@ class AddEditContactPage extends StatelessWidget {
                 ),
                 SizedBox(height: 16),
                 _buildCurvedTextField(
+                  context: context,
                   controller: emailController,
                   labelText: 'Email Address',
                   hintText: 'Enter email address',
@@ -445,6 +451,7 @@ class AddEditContactPage extends StatelessWidget {
                         children: [
                           Expanded(
                             child: _buildCurvedTextField(
+                              context: context,
                               controller: controller,
                               labelText: 'Additional Email',
                               hintText: 'Enter additional email',
@@ -471,6 +478,7 @@ class AddEditContactPage extends StatelessWidget {
                 ),
                 SizedBox(height: 16),
                 _buildCurvedTextField(
+                  context: context,
                   controller: whatsappController,
                   labelText: 'WhatsApp',
                   hintText: 'Enter WhatsApp number',
@@ -481,6 +489,7 @@ class AddEditContactPage extends StatelessWidget {
                 ),
                 SizedBox(height: 16),
                 _buildCurvedTextField(
+                  context: context,
                   controller: facebookController,
                   labelText: 'Facebook',
                   hintText: 'Enter Facebook URL',
@@ -491,6 +500,7 @@ class AddEditContactPage extends StatelessWidget {
                 ),
                 SizedBox(height: 16),
                 _buildCurvedTextField(
+                  context: context,
                   controller: instagramController,
                   labelText: 'Instagram',
                   hintText: 'Enter Instagram URL',
@@ -501,6 +511,7 @@ class AddEditContactPage extends StatelessWidget {
                 ),
                 SizedBox(height: 16),
                 _buildCurvedTextField(
+                  context: context,
                   controller: youtubeController,
                   labelText: 'YouTube',
                   hintText: 'Enter YouTube URL',
@@ -511,6 +522,7 @@ class AddEditContactPage extends StatelessWidget {
                 ),
                 SizedBox(height: 16),
                 _buildCurvedTextField(
+                  context: context,
                   controller: websiteController,
                   labelText: 'Website',
                   hintText: 'Enter website URL',
@@ -529,20 +541,22 @@ class AddEditContactPage extends StatelessWidget {
                           children: [
                             Expanded(
                               child: _buildCurvedTextField(
-                                controller: field['labelController'],
-                                labelText: 'Field Label',
-                                hintText: 'Custom Field Label',
-                                focusNode: null,
-                              ),
+                                  context: context,
+                                  controller: field['labelController'],
+                                  labelText: 'Field Label',
+                                  hintText: 'Custom Field Label',
+                                  focusNode: null,
+                                ),
                             ),
                             SizedBox(width: 8),
                             Expanded(
                               child: _buildCurvedTextField(
-                                controller: field['valueController'],
-                                labelText: 'Field Value',
-                                hintText: 'Custom Field Value',
-                                focusNode: null,
-                              ),
+                                  context: context,
+                                  controller: field['valueController'],
+                                  labelText: 'Field Value',
+                                  hintText: 'Custom Field Value',
+                                  focusNode: null,
+                                ),
                             ),
                             IconButton(
                               icon:
@@ -627,6 +641,7 @@ class AddEditContactPage extends StatelessWidget {
   }
 
   Widget _buildCurvedTextField({
+    required BuildContext context,
     required TextEditingController controller,
     required String labelText,
     required String hintText,
@@ -642,7 +657,7 @@ class AddEditContactPage extends StatelessWidget {
       focusNode: focusNode,
       onSubmitted: (_) {
         if (nextFocusNode != null) {
-          FocusScope.of(focusNode!.context!).requestFocus(nextFocusNode);
+          FocusScope.of(context).requestFocus(nextFocusNode);
         }
       },
       decoration: InputDecoration(

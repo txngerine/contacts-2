@@ -28,8 +28,8 @@ class AddEditProfileContactPage extends StatelessWidget {
             IconButton(
               icon: Icon(Icons.sync),
               tooltip: 'Sync to Firebase (Admin only)',
-              onPressed: () {
-                controller.saveContact(context);
+              onPressed: () async {
+                await controller.saveContact(context);
               },
             ),
         ],
@@ -42,6 +42,7 @@ class AddEditProfileContactPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildCurvedTextField(
+                  context: context,
                   controller: controller.nameController,
                   labelText: 'Full Name',
                   hintText: 'Enter full name',
@@ -51,6 +52,7 @@ class AddEditProfileContactPage extends StatelessWidget {
                 ),
                 SizedBox(height: 16),
                 _buildCurvedTextField(
+                  context: context,
                   controller: controller.phoneController,
                   labelText: 'Phone Number',
                   hintText: 'Enter phone number',
@@ -68,6 +70,7 @@ class AddEditProfileContactPage extends StatelessWidget {
                         children: [
                           Expanded(
                             child: _buildCurvedTextField(
+                              context: context,
                               controller: phoneController,
                               labelText: 'Additional Phone',
                               hintText: 'Enter additional phone',
@@ -92,6 +95,7 @@ class AddEditProfileContactPage extends StatelessWidget {
                 ),
                 SizedBox(height: 16),
                 _buildCurvedTextField(
+                  context: context,
                   controller: controller.landlineController,
                   labelText: 'LandLine Number',
                   hintText: 'Enter LandLine number',
@@ -109,6 +113,7 @@ class AddEditProfileContactPage extends StatelessWidget {
                         children: [
                           Expanded(
                             child: _buildCurvedTextField(
+                              context: context,
                               controller: landlineController,
                               labelText: 'Additional Landline',
                               hintText: 'Enter additional Landline',
@@ -133,6 +138,7 @@ class AddEditProfileContactPage extends StatelessWidget {
                 ),
                 SizedBox(height: 16),
                 _buildCurvedTextField(
+                  context: context,
                   controller: controller.emailController,
                   labelText: 'Email Address',
                   hintText: 'Enter email address',
@@ -149,6 +155,7 @@ class AddEditProfileContactPage extends StatelessWidget {
                         children: [
                           Expanded(
                             child: _buildCurvedTextField(
+                              context: context,
                               controller: emailController,
                               labelText: 'Additional Email',
                               hintText: 'Enter additional email',
@@ -172,6 +179,7 @@ class AddEditProfileContactPage extends StatelessWidget {
                 ),
                 SizedBox(height: 16),
                 _buildCurvedTextField(
+                  context: context,
                   controller: controller.whatsappController,
                   labelText: 'WhatsApp',
                   hintText: 'Enter WhatsApp number',
@@ -181,6 +189,7 @@ class AddEditProfileContactPage extends StatelessWidget {
                   iconColor: Color(0xFF25D366),
                 ),SizedBox(height: 16),
                 _buildCurvedTextField(
+                  context: context,
                   controller: controller.facebookController,
                   labelText: 'Facebook',
                   hintText: 'Enter Facebook URL',
@@ -190,6 +199,7 @@ class AddEditProfileContactPage extends StatelessWidget {
                   nextFocusNode: controller.instagramFocusNode,
                 ),SizedBox(height: 16),
                 _buildCurvedTextField(
+                  context: context,
                   controller: controller.instagramController,
                   labelText: 'Instagram',
                   hintText: 'Enter Instagram URL',
@@ -199,6 +209,7 @@ class AddEditProfileContactPage extends StatelessWidget {
                   nextFocusNode: controller.youtubeFocusNode,
                 ),SizedBox(height: 16),
                 _buildCurvedTextField(
+                  context: context,
                   controller: controller.youtubeController,
                   labelText: 'YouTube',
                   hintText: 'Enter YouTube URL',
@@ -209,6 +220,7 @@ class AddEditProfileContactPage extends StatelessWidget {
                 ),
                 SizedBox(height: 16),
                 _buildCurvedTextField(
+                  context: context,
                   controller: controller.websiteController,
                   labelText: 'Website',
                   hintText: 'Enter website URL',
@@ -227,6 +239,7 @@ class AddEditProfileContactPage extends StatelessWidget {
                           children: [
                             Expanded(
                               child: _buildCurvedTextField(
+                                context: context,
                                 controller: field['labelController'],
                                 labelText: 'Field Label',
                                 hintText: 'Custom Field Label',
@@ -236,6 +249,7 @@ class AddEditProfileContactPage extends StatelessWidget {
                             SizedBox(width: 8),
                             Expanded(
                               child: _buildCurvedTextField(
+                                context: context,
                                 controller: field['valueController'],
                                 labelText: 'Field Value',
                                 hintText: 'Custom Field Value',
@@ -269,7 +283,7 @@ class AddEditProfileContactPage extends StatelessWidget {
                       child: Text('Cancel', style: TextStyle(color: Colors.red)),
                     ),
                     ElevatedButton(
-                    onPressed: () => controller.saveContact(context),
+                    onPressed: () async => await controller.saveContact(context),
                   child: Text(contact == null ? 'Save Contact' : 'Update Contact',style: TextStyle(color: Colors.white),),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
@@ -281,14 +295,13 @@ class AddEditProfileContactPage extends StatelessWidget {
                       ),
                     ),
                     ElevatedButton.icon(
-      onPressed: () async {
-        // Save the latest form data to the controller's contact object
-        controller.saveContact(context);
-        // Publish to Firebase
-        if (controller.contact != null) {
-          await controller.publishContactToFirebase(controller.contact!);
-        }
-      },
+                      onPressed: () async {
+                        // Save and publish; saveContact now returns the saved Contact
+                        final saved = await controller.saveContact(context);
+                        if (saved != null) {
+                          await controller.publishContactToFirebase(saved);
+                        }
+                      },
       icon: Icon(Icons.cloud_upload, color: Colors.white),
       label: Text('Publish', style: TextStyle(color: Colors.white)),
       style: ElevatedButton.styleFrom(
@@ -310,6 +323,7 @@ class AddEditProfileContactPage extends StatelessWidget {
   }
 
   Widget _buildCurvedTextField({
+  required BuildContext context,
   required TextEditingController controller,
   required String labelText,
   required String hintText,
@@ -325,7 +339,7 @@ class AddEditProfileContactPage extends StatelessWidget {
     focusNode: focusNode,
     onSubmitted: (_) {
       if (nextFocusNode != null) {
-        FocusScope.of(focusNode!.context!).requestFocus(nextFocusNode);
+        FocusScope.of(context).requestFocus(nextFocusNode);
       }
     },
     decoration: InputDecoration(

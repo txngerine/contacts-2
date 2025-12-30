@@ -13,13 +13,17 @@ class AdminView extends StatelessWidget {
     return Scaffold(
       body: Obx(() {
         return FutureBuilder(
-          future: authController.fetchUserRole(),  // Ensure the user role is fetched first
+          future: authController.fetchUserData(),  // Ensure the user role is fetched first
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return Center(child: CircularProgressIndicator());
             }
 
-            // Fetch all users from Firestore
+            // Only allow admin users to subscribe to the users collection.
+            if (!authController.isAdmin) {
+              return Center(child: Text('Unauthorized: admin access required.'));
+            }
+
             return StreamBuilder(
               stream: FirebaseFirestore.instance.collection('users').snapshots(),
               builder: (context, AsyncSnapshot<QuerySnapshot> usersSnapshot) {

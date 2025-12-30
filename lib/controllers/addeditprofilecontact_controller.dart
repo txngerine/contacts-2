@@ -98,23 +98,69 @@ class AddEditProfileContactController extends GetxController {
     return true;
   }
 
-  void saveContact(BuildContext context) {
-    if (!validateFields(context)) return;
+  Future<Contact?> saveContact(BuildContext context) async {
+    if (!validateFields(context)) return null;
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('You must be logged in to save a contact.'), backgroundColor: Colors.red),
       );
-      return;
+      return null;
     }
 
+    // Check if the name already exists and was uploaded by an admin
+    try {
+      final query = await FirebaseFirestore.instance
+          .collection('contacts')
+          .where('name', isEqualTo: nameController.text.trim())
+          .get();
+      for (var doc in query.docs) {
+        final data = doc.data();
+        // Assuming admin contacts have a field 'isAdmin' true or ownerId is a known admin UID
+        if (data['isAdmin'] == true || (data['ownerId'] != null && contactController.isAdminUid(data['ownerId']))) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('This name has already been uploaded by an admin. Please choose a different name.'), backgroundColor: Colors.red),
+          );
+          return null;
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error checking name: $e'), backgroundColor: Colors.red),
+      );
+      return null;
+    }
+
+    // Prevent duplicate contact on device (local Hive) by name
+    try {
+      final localContacts = contactController.contacts;
+      final nameToCheck = nameController.text.trim();
+      final isDuplicateLocal = localContacts.any((c) =>
+        c.name.trim() == nameToCheck && (contact == null || c.id != contact!.id)
+      );
+      if (isDuplicateLocal) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('A contact with this name already exists on your device.'), backgroundColor: Colors.red),
+        );
+        return null;
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error checking local contacts: $e'), backgroundColor: Colors.red),
+      );
+      return null;
+    }
+
+    // Build custom fields map but skip empty labels to avoid empty keys
     Map<String, String> customFieldsMap = Map.fromEntries(
-      customFields.map((field) => MapEntry(
-            field['labelController']!.text,
-            field['valueController']!.text,
-          )),
+      customFields.map((field) {
+        final label = (field['labelController'] as TextEditingController).text.trim();
+        final value = (field['valueController'] as TextEditingController).text;
+        return MapEntry(label, value);
+      }).where((entry) => entry.key.isNotEmpty),
     );
+
     List<String> phoneNumbers = phoneNumbersControllers
         .map((controller) => controller.text)
         .where((number) => number.isNotEmpty)
@@ -131,13 +177,16 @@ class AddEditProfileContactController extends GetxController {
     bool isAdmin = contactController.isAdmin();
 
     if (contact == null) {
+      // Use the authenticated user's UID as ownerId (not the name)
+      final ownerId = user.uid;
+
       Contact newContact = Contact(
         id: '',
         name: nameController.text,
         phone: phoneController.text,
         landline: landlineController.text,
         email: emailController.text,
-        ownerId: nameController.text, // <-- FIXED HERE
+        ownerId: ownerId,
         customFields: customFieldsMap,
         phoneNumbers: phoneNumbers,
         emailAddresses: emailAddresses,
@@ -150,11 +199,12 @@ class AddEditProfileContactController extends GetxController {
         isFavorite: false,
       );
       if (isAdmin) {
-        contactController.addContactToFirebaseIfAdmin(newContact);
+        await contactController.addContactToFirebaseIfAdmin(newContact);
       } else {
-        contactController.addContact(newContact);
+        await contactController.addContact(newContact);
       }
       Navigator.pop(context, newContact);
+      return newContact;
     } else {
       contact!
         ..name = nameController.text
@@ -171,7 +221,7 @@ class AddEditProfileContactController extends GetxController {
         ..youtube = youtubeController.text
         ..website = websiteController.text;
 
-      contactController.editContact(
+      await contactController.editContact(
         contact: contact!,
         name: contact!.name,
         phone: contact!.phone,
@@ -188,23 +238,45 @@ class AddEditProfileContactController extends GetxController {
       );
 
       if (isAdmin) {
-        contactController.updateContactToFirebaseIfAdmin(contact!);
+        await contactController.updateContactToFirebaseIfAdmin(contact!);
       } else {
         contactController.updateContact(contact!);
       }
       Navigator.pop(context, contact);
+      return contact;
     }
   }
 
   // Add/remove methods
   void addPhoneNumber() => phoneNumbersControllers.add(TextEditingController());
-  void removePhoneNumber(int index) => phoneNumbersControllers.removeAt(index);
+  void removePhoneNumber(int index) {
+    if (index < 0 || index >= phoneNumbersControllers.length) return;
+    final ctrl = phoneNumbersControllers[index];
+    phoneNumbersControllers.removeAt(index);
+    try {
+      ctrl.dispose();
+    } catch (_) {}
+  }
 
   void addEmailAddress() => emailAddressesControllers.add(TextEditingController());
-  void removeEmailAddress(int index) => emailAddressesControllers.removeAt(index);
+  void removeEmailAddress(int index) {
+    if (index < 0 || index >= emailAddressesControllers.length) return;
+    final ctrl = emailAddressesControllers[index];
+    emailAddressesControllers.removeAt(index);
+    try {
+      ctrl.dispose();
+    } catch (_) {}
+  }
 
   void addLandlineNumbers() => landlineNumbersControllers.add(TextEditingController());
-  void removeLandlineNumbers(int index) => landlineNumbersControllers.removeAt(index);
+  void removeLandlineNumbers(int index) {
+    if (index < 0 || index >= landlineNumbersControllers.length) return;
+    final ctrl = landlineNumbersControllers[index];
+    landlineNumbersControllers.removeAt(index);
+    try {
+      ctrl.dispose();
+    } catch (_) {}
+  }
 
   void addCustomField() {
     customFields.add({
@@ -213,7 +285,20 @@ class AddEditProfileContactController extends GetxController {
       'valueController': TextEditingController(),
     });
   }
-  void removeCustomField(int index) => customFields.removeAt(index);
+
+  void removeCustomField(int index) {
+    if (index < 0 || index >= customFields.length) return;
+    final field = customFields[index];
+    final labelCtrl = field['labelController'] as TextEditingController?;
+    final valueCtrl = field['valueController'] as TextEditingController?;
+    customFields.removeAt(index);
+    try {
+      labelCtrl?.dispose();
+    } catch (_) {}
+    try {
+      valueCtrl?.dispose();
+    } catch (_) {}
+  }
 
   Future<void> publishContactToFirebase(Contact contact) async {
     final user = FirebaseAuth.instance.currentUser;
@@ -221,79 +306,87 @@ class AddEditProfileContactController extends GetxController {
       Get.snackbar('Error', 'You must be logged in to publish.');
       return;
     }
-    contact.ownerId = user.uid; // <-- FIXED HERE
+    contact.ownerId = user.uid;
 
     try {
-      // Check for duplicate by name and (phone or email) for this user
+      // Check for duplicate by name ONLY for this user
       final query = await FirebaseFirestore.instance
           .collection('contacts')
           .where('name', isEqualTo: contact.name)
           .where('ownerId', isEqualTo: user.uid)
           .get();
 
-      DocumentReference? duplicateDoc;
-      for (var doc in query.docs) {
-        final data = doc.data();
-        if (
-          (data['phone'] == contact.phone && contact.phone.isNotEmpty) ||
-          (data['email'] == contact.email && contact.email.isNotEmpty)
-        ) {
-          duplicateDoc = doc.reference;
-          break;
-        }
+      if (query.docs.isNotEmpty) {
+        // Block duplicate entirely
+        Get.snackbar('Duplicate', 'A contact with this name already exists.');
+        return;
       }
 
-      if (duplicateDoc != null) {
-        // Update the existing duplicate contact
-        await duplicateDoc.update({
-          'name': contact.name,
-          'phone': contact.phone,
-          'landline': contact.landline,
-          'email': contact.email,
-          'ownerId': contact.ownerId,
-          'customFields': contact.customFields,
-          'phoneNumbers': contact.phoneNumbers,
-          'emailAddresses': contact.emailAddresses,
-          'landlineNumbers': contact.landlineNumbers,
-          'whatsapp': contact.whatsapp,
-          'facebook': contact.facebook,
-          'instagram': contact.instagram,
-          'youtube': contact.youtube,
-          'website': contact.website,
-          'isFavorite': contact.isFavorite,
-        });
-        ScaffoldMessenger.of(Get.context!).showSnackBar(
-          SnackBar(content: Text('Duplicate found. Existing contact updated.'), backgroundColor: Colors.green),
-        );
-      } else {
-        // No duplicate, create new
-        await FirebaseFirestore.instance
-            .collection('contacts')
-            .add({
-          'name': contact.name,
-          'phone': contact.phone,
-          'landline': contact.landline,
-          'email': contact.email,
-          'ownerId': contact.ownerId,
-          'customFields': contact.customFields,
-          'phoneNumbers': contact.phoneNumbers,
-          'emailAddresses': contact.emailAddresses,
-          'landlineNumbers': contact.landlineNumbers,
-          'whatsapp': contact.whatsapp,
-          'facebook': contact.facebook,
-          'instagram': contact.instagram,
-          'youtube': contact.youtube,
-          'website': contact.website,
-          'isFavorite': contact.isFavorite,
-        });
-        ScaffoldMessenger.of(Get.context!).showSnackBar(
-          SnackBar(content: Text('Contact published to Firebase.'), backgroundColor: Colors.green),
-        );
-      }
+      // No duplicate, create new
+      await FirebaseFirestore.instance
+          .collection('contacts')
+          .add({
+        'name': contact.name,
+        'phone': contact.phone,
+        'landline': contact.landline,
+        'email': contact.email,
+        'ownerId': contact.ownerId,
+        'customFields': contact.customFields,
+        'phoneNumbers': contact.phoneNumbers,
+        'emailAddresses': contact.emailAddresses,
+        'landlineNumbers': contact.landlineNumbers,
+        'whatsapp': contact.whatsapp,
+        'facebook': contact.facebook,
+        'instagram': contact.instagram,
+        'youtube': contact.youtube,
+        'website': contact.website,
+        'isFavorite': contact.isFavorite,
+      });
+      Get.snackbar('Success', 'Contact published to Firebase.');
     } catch (e) {
-      ScaffoldMessenger.of(Get.context!).showSnackBar(
-        SnackBar(content: Text('Failed to publish contact: $e'), backgroundColor: Colors.red),
-      );
+      Get.snackbar('Error', 'Failed to publish contact: $e');
     }
+  }
+
+  @override
+  void onClose() {
+    // Dispose single controllers
+    try { nameController.dispose(); } catch (_) {}
+    try { phoneController.dispose(); } catch (_) {}
+    try { landlineController.dispose(); } catch (_) {}
+    try { emailController.dispose(); } catch (_) {}
+    try { whatsappController.dispose(); } catch (_) {}
+    try { facebookController.dispose(); } catch (_) {}
+    try { instagramController.dispose(); } catch (_) {}
+    try { youtubeController.dispose(); } catch (_) {}
+    try { websiteController.dispose(); } catch (_) {}
+
+    // Dispose list controllers
+    for (var c in phoneNumbersControllers) {
+      try { c.dispose(); } catch (_) {}
+    }
+    for (var c in emailAddressesControllers) {
+      try { c.dispose(); } catch (_) {}
+    }
+    for (var c in landlineNumbersControllers) {
+      try { c.dispose(); } catch (_) {}
+    }
+    for (var field in customFields) {
+      try { (field['labelController'] as TextEditingController?)?.dispose(); } catch (_) {}
+      try { (field['valueController'] as TextEditingController?)?.dispose(); } catch (_) {}
+    }
+
+    // Dispose focus nodes
+    try { nameFocusNode.dispose(); } catch (_) {}
+    try { phoneFocusNode.dispose(); } catch (_) {}
+    try { landFocusNode.dispose(); } catch (_) {}
+    try { emailFocusNode.dispose(); } catch (_) {}
+    try { whatsappFocusNode.dispose(); } catch (_) {}
+    try { facebookFocusNode.dispose(); } catch (_) {}
+    try { instagramFocusNode.dispose(); } catch (_) {}
+    try { youtubeFocusNode.dispose(); } catch (_) {}
+    try { websiteFocusNode.dispose(); } catch (_) {}
+
+    super.onClose();
   }
 }
