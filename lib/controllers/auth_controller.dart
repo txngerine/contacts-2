@@ -363,10 +363,12 @@ class AuthController extends GetxController {
 
   // Reactive user state
   final Rxn<User> firebaseUser = Rxn<User>();
-  final RxString userRole = 'user'.obs;
-  final RxString username = 'Guest'.obs;
+  // start empty so app doesn't assume a logged-in user on startup
+  final RxString userRole = ''.obs;
+  final RxString username = ''.obs;
   final RxString userEmail = ''.obs;
   final RxBool isPasswordHidden = true.obs;
+  
 
   // -------------------- LIFECYCLE --------------------
 
@@ -382,6 +384,18 @@ void onInit() {
     if (user == null) {
       Get.offAllNamed('/login');
     } else {
+      // If the current user is an anonymous (guest) account that was
+      // previously persisted, sign them out so the app shows the login screen.
+      if (user.isAnonymous) {
+        try {
+          await _auth.signOut();
+        } catch (e) {
+          debugPrint('Failed to sign out anonymous user: $e');
+        }
+        Get.offAllNamed('/login');
+        return;
+      }
+
       await fetchUserData();
       Get.offAllNamed('/home');
     }
