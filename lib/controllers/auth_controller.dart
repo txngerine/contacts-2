@@ -368,6 +368,9 @@ class AuthController extends GetxController {
   final RxString username = ''.obs;
   final RxString userEmail = ''.obs;
   final RxBool isPasswordHidden = true.obs;
+  // Phone auth helpers
+  String? _verificationId;
+  int? _resendToken;
   
 
   // -------------------- LIFECYCLE --------------------
@@ -493,25 +496,52 @@ void onInit() {
     String role,
     String usernameInput,
   ) async {
-    if (email.isEmpty ||
-        password.isEmpty ||
-        role.isEmpty ||
-        usernameInput.isEmpty) {
-      _showSnackbar('All fields are required');
+    // username, password and role are required; email is optional
+    if (password.isEmpty || role.isEmpty || usernameInput.isEmpty) {
+      _showSnackbar('Username, password and role are required');
       return;
+    }
+
+    // Ensure username is unique in Firestore
+    try {
+      final existing = await _firestore
+          .collection('users')
+          .where('username', isEqualTo: usernameInput)
+          .limit(1)
+          .get();
+
+      if (existing.docs.isNotEmpty) {
+        _showSnackbar('Username already taken');
+        return;
+      }
+    } catch (e) {
+      // Non-fatal; proceed but warn
+      _showSnackbar('Failed to validate username uniqueness');
+      return;
+    }
+
+    // If email is empty, generate a synthetic email based on username
+    String emailToUse = email.trim();
+    if (emailToUse.isEmpty) {
+      final sanitized = usernameInput
+          .trim()
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9]'), '_')
+          .replaceAll(RegExp(r'_+'), '_');
+      final local = sanitized.isEmpty
+          ? 'user_${DateTime.now().millisecondsSinceEpoch}'
+          : sanitized;
+      emailToUse = '$local@korlinks.app';
     }
 
     try {
       final credential = await _auth.createUserWithEmailAndPassword(
-        email: email,
+        email: emailToUse,
         password: password,
       );
 
-      await _firestore
-          .collection('users')
-          .doc(credential.user!.uid)
-          .set({
-        'email': email,
+      await _firestore.collection('users').doc(credential.user!.uid).set({
+        'email': emailToUse,
         'username': usernameInput,
         'role': role,
       });
@@ -585,6 +615,78 @@ void onInit() {
       } else {
         _showSnackbar(e.message ?? 'Delete failed');
       }
+    }
+  }
+
+  // -------------------- PHONE AUTH --------------------
+
+  Future<void> sendPhoneCode(String phoneNumber) async {
+    try {
+      await _auth.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        timeout: const Duration(seconds: 60),
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          try {
+            final userCred = await _auth.signInWithCredential(credential);
+            if (userCred.user != null) await _ensureUserDoc(userCred.user!);
+          } catch (_) {
+            // ignore sign-in errors from auto retrieval
+          }
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          _showSnackbar(_mapAuthError(e));
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          _verificationId = verificationId;
+          _resendToken = resendToken;
+          _showSnackbar('Verification code sent');
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          _verificationId = verificationId;
+        },
+      );
+    } catch (e) {
+      _showSnackbar('Failed to send verification code');
+    }
+  }
+
+  Future<void> verifySmsCode(String smsCode) async {
+    if (_verificationId == null) {
+      _showSnackbar('No verification in progress');
+      return;
+    }
+
+    try {
+      final cred = PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: smsCode,
+      );
+
+      final userCred = await _auth.signInWithCredential(cred);
+      if (userCred.user != null) {
+        await _ensureUserDoc(userCred.user!);
+      }
+    } on FirebaseAuthException catch (e) {
+      _showSnackbar(_mapAuthError(e));
+    } catch (e) {
+      _showSnackbar('Verification failed');
+    }
+  }
+
+  Future<void> _ensureUserDoc(User user) async {
+    try {
+      final ref = _firestore.collection('users').doc(user.uid);
+      final doc = await ref.get();
+      if (!doc.exists) {
+        await ref.set({
+          'phone': user.phoneNumber ?? '',
+          'username': user.phoneNumber ?? '',
+          'role': 'user',
+          'email': user.email ?? '',
+        });
+      }
+    } catch (_) {
+      // non-fatal: user can still sign in even if doc write fails
     }
   }
 

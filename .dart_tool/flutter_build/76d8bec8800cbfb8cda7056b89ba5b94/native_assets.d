@@ -1,1 +1,0 @@
- C:\\Users\\Lenovo\\Downloads\\contacts\ 2\\contacts\ 2\\.dart_tool\\flutter_build\\76d8bec8800cbfb8cda7056b89ba5b94\\native_assets.yaml: 

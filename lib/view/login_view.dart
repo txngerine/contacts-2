@@ -117,15 +117,15 @@ class LoginView extends StatelessWidget {
                   const SizedBox(height: 12),
 
                   // Forgot password button
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {
-                        Get.to(() => ForgotPasswordView());
-                      },
-                      child: const Text('Forgot password?', style: TextStyle(color: Colors.blue)),
-                    ),
-                  ),
+                  // Align(
+                  //   alignment: Alignment.centerRight,
+                  //   child: TextButton(
+                  //     onPressed: () {
+                  //       Get.to(() => ForgotPasswordView());
+                  //     },
+                  //     child: const Text('Forgot password?', style: TextStyle(color: Colors.blue)),
+                  //   ),
+                  // ),
 
                   const SizedBox(height: 12),
 
