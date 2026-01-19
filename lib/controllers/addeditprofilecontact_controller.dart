@@ -63,20 +63,20 @@ class AddEditProfileContactController extends GetxController {
     websiteFocusNode = FocusNode();
 
     if (contact != null) {
-      contact!.customFields?.forEach((label, value) {
+      contact!.customFields.forEach((label, value) {
         customFields.add({
           'label': label,
           'labelController': TextEditingController(text: label),
           'valueController': TextEditingController(text: value),
         });
       });
-      contact!.phoneNumbers?.forEach((phone) {
+      contact!.phoneNumbers.forEach((phone) {
         phoneNumbersControllers.add(TextEditingController(text: phone));
       });
-      contact!.emailAddresses?.forEach((email) {
+      contact!.emailAddresses.forEach((email) {
         emailAddressesControllers.add(TextEditingController(text: email));
       });
-      contact!.landlineNumbers?.forEach((landline) {
+      contact!.landlineNumbers.forEach((landline) {
         landlineNumbersControllers.add(TextEditingController(text: landline));
       });
     }

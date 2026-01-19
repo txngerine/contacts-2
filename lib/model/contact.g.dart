@@ -35,13 +35,14 @@ class ContactAdapter extends TypeAdapter<Contact> {
       website: fields[16] as String?,
       isSynced: fields[15] as bool,
       importedFromCsv: fields[17] as bool,
+      isDeleted: fields[18] as bool? ?? false,
     );
   }
 
   @override
   void write(BinaryWriter writer, Contact obj) {
     writer
-      ..writeByte(18)
+      ..writeByte(19)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -77,7 +78,9 @@ class ContactAdapter extends TypeAdapter<Contact> {
       ..writeByte(16)
       ..write(obj.website)
       ..writeByte(17)
-      ..write(obj.importedFromCsv);
+      ..write(obj.importedFromCsv)
+      ..writeByte(18)
+      ..write(obj.isDeleted);
   }
 
   @override

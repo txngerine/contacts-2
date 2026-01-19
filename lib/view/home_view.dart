@@ -20,6 +20,7 @@ import 'importcontact.dart';
 import 'privacypolicy.dart';
 import 'profile_view.dart';
 import 'termsandconditionpage.dart';
+import 'feedback_view.dart';
 
 class HomeView extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();
@@ -127,6 +128,8 @@ class HomeView extends StatelessWidget {
                     Get.to(ContactImportFromVcfView());
                   } else if (value == 'faq') {
                     Get.to(FaqView());
+                  } else if (value == 'feedback') {
+                    Get.to(FeedbackView());
                   } else if (value == 'Recycle Bin') {
                     Get.to(RecycleBinView());
                   } else if (value == 'share') {
@@ -177,6 +180,10 @@ class HomeView extends StatelessWidget {
                   PopupMenuItem(
                     value: 'faq',
                     child: Text('F A Q'),
+                  ),
+                  PopupMenuItem(
+                    value: 'feedback',
+                    child: Text('Send Feedback'),
                   ),
                   PopupMenuItem(
                     value: 'Recycle Bin',

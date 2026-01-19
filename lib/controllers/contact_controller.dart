@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hive/hive.dart';
 import '../model/contact.dart';
 import 'auth_controller.dart';
-import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 
@@ -68,9 +67,6 @@ Future<void> fetchContacts() async {
 
     if (hasInternet) {
       // 🔹 Online: Fetch from Firestore
-      final userDoc = await firestore.collection('users').doc(user.uid).get();
-      final isAdmin = userDoc.exists && userDoc.data()?['role'] == 'admin';
-
       Query<Map<String, dynamic>> query =
           firestore.collection('contacts').limit(pageSize);
 
@@ -80,7 +76,17 @@ Future<void> fetchContacts() async {
           .toList();
 
       // 🔹 Load local contacts
-      final localContacts = contactBox.values.toList();
+      var localContacts = contactBox.values.toList();
+
+      // 🔹 Ensure all contacts have isDeleted field (for backward compatibility)
+      for (int i = 0; i < localContacts.length; i++) {
+        final contact = localContacts[i];
+        if (contact.isDeleted is! bool) {
+          final fixedContact = contact.copyWith(isDeleted: false);
+          await contactBox.put(contact.id, fixedContact);
+          localContacts[i] = fixedContact;
+        }
+      }
 
       // 🔹 Keep local-only contacts
       final localOnlyContacts = localContacts
@@ -89,23 +95,32 @@ Future<void> fetchContacts() async {
               !firestoreContacts.any((f) => f.id == local.id))
           .toList();
 
-      // 🔹 Merge both
-      final allContacts = [...firestoreContacts, ...localOnlyContacts];
+      // 🔹 Filter out deleted contacts
+      final activeContacts = [...firestoreContacts, ...localOnlyContacts]
+          .where((c) => !c.isDeleted)
+          .toList();
+
+      // 🔹 Load deleted contacts from Hive
+      final deletedFromHive = localContacts
+          .where((c) => c.isDeleted)
+          .toList();
+      deletedContacts.value = deletedFromHive;
 
       // 🔹 Update Hive cache
       for (var contact in firestoreContacts) {
         await contactBox.put(contact.id, contact);
       }
 
-      // 🔹 Remove deleted Firestore contacts
+      // 🔹 Remove deleted Firestore contacts (but keep local deleted ones)
       for (var localContact in localContacts) {
         if (localContact.isSynced &&
+            !localContact.isDeleted && // Don't delete if marked as deleted locally
             !firestoreContacts.any((f) => f.id == localContact.id)) {
           await contactBox.delete(localContact.id);
         }
       }
 
-      contacts.value = allContacts;
+      contacts.value = activeContacts;
 
       // Save pagination state
       if (snapshot.docs.isNotEmpty) lastVisible = snapshot.docs.last;
@@ -113,12 +128,38 @@ Future<void> fetchContacts() async {
       Get.snackbar('Online Sync', 'Contacts updated from Firebase.');
     } else {
       // 🔹 Offline: load from local Hive
-      contacts.value = contactBox.values.toList();
+      var allLocal = contactBox.values.toList();
+      
+      // 🔹 Ensure all contacts have isDeleted field (for backward compatibility)
+      for (int i = 0; i < allLocal.length; i++) {
+        final contact = allLocal[i];
+        if (contact.isDeleted is! bool) {
+          final fixedContact = contact.copyWith(isDeleted: false);
+          await contactBox.put(contact.id, fixedContact);
+          allLocal[i] = fixedContact;
+        }
+      }
+      
+      contacts.value = allLocal.where((c) => !c.isDeleted).toList();
+      deletedContacts.value = allLocal.where((c) => c.isDeleted).toList();
       Get.snackbar('Offline Mode', 'Loaded contacts from local storage.');
     }
   } catch (e) {
     // 🔹 Fallback to local data if any error occurs
-    contacts.value = contactBox.values.toList();
+    var allLocal = contactBox.values.toList();
+    
+    // 🔹 Ensure all contacts have isDeleted field (for backward compatibility)
+    for (int i = 0; i < allLocal.length; i++) {
+      final contact = allLocal[i];
+      if (contact.isDeleted is! bool) {
+        final fixedContact = contact.copyWith(isDeleted: false);
+        await contactBox.put(contact.id, fixedContact);
+        allLocal[i] = fixedContact;
+      }
+    }
+    
+    contacts.value = allLocal.where((c) => !c.isDeleted).toList();
+    deletedContacts.value = allLocal.where((c) => c.isDeleted).toList();
     Get.snackbar('Offline Mode', 'Loaded contacts from local storage.');
   } finally {
     filterContacts();
@@ -297,22 +338,35 @@ Future<void> fetchContacts() async {
 
 
   Future<void> deleteContact(Contact contact) async {
+  // Mark as deleted instead of removing
+  final deletedContact = contact.copyWith(isDeleted: true);
   contacts.removeWhere((c) => c.id == contact.id);
-  deletedContacts.add(contact); // Move to recycle bin
-  await contactBox.delete(contact.id);
+  deletedContacts.add(deletedContact);
+  await contactBox.put(contact.id, deletedContact);
   filterContacts();
 }
 
   Future<void> restoreContact(Contact contact) async {
-    // deletedContacts.remove(contact);
+    // Unmark as deleted
+    final restoredContact = contact.copyWith(isDeleted: false);
     deletedContacts.removeWhere((c) => c.id == contact.id);
-    contacts.add(contact);
-    await contactBox.put(contact.id, contact);
+    contacts.add(restoredContact);
+    await contactBox.put(contact.id, restoredContact);
     filterContacts();
   }
   Future<void> permanentlyDeleteContact(Contact contact) async {
-    deletedContacts.remove(contact);
+    // Permanently remove from database
+    deletedContacts.removeWhere((c) => c.id == contact.id);
     await contactBox.delete(contact.id);
+    
+    // Also delete from Firestore if it was synced
+    if (contact.isSynced) {
+      try {
+        await firestore.collection('contacts').doc(contact.id).delete();
+      } catch (e) {
+        print('Error deleting from Firestore: $e');
+      }
+    }
     filterContacts();
   }
 

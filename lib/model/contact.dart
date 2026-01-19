@@ -226,6 +226,9 @@ class Contact extends HiveObject {
   @HiveField(17)
   bool importedFromCsv; // 👈 NEW FIELD
 
+  @HiveField(18)
+  bool isDeleted; // 👈 RECYCLE BIN FLAG
+
   Contact({
     required this.id,
     required this.name,
@@ -245,6 +248,7 @@ class Contact extends HiveObject {
     this.website,
     this.isSynced = true,
     this.importedFromCsv = false, // 👈 default false
+    this.isDeleted = false, // 👈 default not deleted
   });
 
   factory Contact.fromMap(String id, Map<String, dynamic> map) {
@@ -267,6 +271,7 @@ class Contact extends HiveObject {
       website: map['website'],
       isSynced: map['isSynced'] ?? true,
       importedFromCsv: map['importedFromCsv'] ?? false, // 👈 load flag
+      isDeleted: map['isDeleted'] ?? false, // 👈 load deleted flag
     );
   }
 
@@ -289,6 +294,7 @@ class Contact extends HiveObject {
       'website': website,
       'isSynced': isSynced,
       'importedFromCsv': importedFromCsv, // 👈 save flag
+      'isDeleted': isDeleted, // 👈 save deleted flag
     };
   }
 
@@ -311,6 +317,7 @@ class Contact extends HiveObject {
     String? website,
     bool? isSynced,
     bool? importedFromCsv,
+    bool? isDeleted,
   }) {
     return Contact(
       id: id ?? this.id,
@@ -331,6 +338,7 @@ class Contact extends HiveObject {
       website: website ?? this.website,
       isSynced: isSynced ?? this.isSynced,
       importedFromCsv: importedFromCsv ?? this.importedFromCsv, // 👈 keep flag
+      isDeleted: isDeleted ?? this.isDeleted, // 👈 keep deleted flag
     );
   }
 }

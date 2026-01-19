@@ -371,7 +371,6 @@ class AuthController extends GetxController {
   // Phone auth helpers
   String? _verificationId;
   int? _resendToken;
-  
 
   // -------------------- LIFECYCLE --------------------
 
