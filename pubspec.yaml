@@ -1,8 +1,7 @@
 name: korlinks
 description: "A new Flutter project."
 publish_to: "none"
-version: 1.0.2+30
-
+version: 1.0.3+44
 environment:
   sdk: ^3.5.4
 

@@ -1,0 +1,1 @@
+ C:\\Users\\Lenovo\\Downloads\\contacts\ 2\\contacts\ 2\\.dart_tool\\flutter_build\\ddc9cd0552ad79b3bb09fa8ff7e3a9de\\native_assets.json: 
