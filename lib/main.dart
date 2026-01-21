@@ -12,6 +12,7 @@ import 'controllers/contact_controller.dart';
 import 'controllers/group_controller.dart';
 import 'controllers/home_controller.dart';
 import 'firebase_options.dart';
+import 'services/in_app_update_service.dart';
 import 'model/groupmodel.dart';
 import 'view/faq_view.dart';
 import 'view/home_view.dart';
@@ -32,6 +33,7 @@ void main() async {
   Get.put(HomeController());
   Get.put(ContactController());
   Get.put(GroupController());
+  Get.put(InAppUpdateService());
 
   runApp(MyApp());
 }

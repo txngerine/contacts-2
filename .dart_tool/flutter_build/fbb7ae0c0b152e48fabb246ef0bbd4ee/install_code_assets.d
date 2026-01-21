@@ -1,0 +1,1 @@
+ /Users/batman/Desktop/contacts-2/.dart_tool/flutter_build/fbb7ae0c0b152e48fabb246ef0bbd4ee/native_assets.json: 

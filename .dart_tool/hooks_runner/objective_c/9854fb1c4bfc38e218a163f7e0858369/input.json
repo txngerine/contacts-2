@@ -1,0 +1,29 @@
+{
+  "assets": {},
+  "config": {
+    "build_asset_types": [
+      "code_assets/code"
+    ],
+    "extensions": {
+      "code_assets": {
+        "android": {
+          "target_ndk_api": 24
+        },
+        "c_compiler": {
+          "ar": "/Users/batman/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar",
+          "cc": "/Users/batman/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang",
+          "ld": "/Users/batman/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/ld.lld"
+        },
+        "link_mode_preference": "dynamic",
+        "target_architecture": "arm64",
+        "target_os": "android"
+      }
+    },
+    "linking_enabled": true
+  },
+  "out_dir_shared": "/Users/batman/Desktop/contacts-2/.dart_tool/hooks_runner/shared/objective_c/build/",
+  "out_file": "/Users/batman/Desktop/contacts-2/.dart_tool/hooks_runner/objective_c/9854fb1c4bfc38e218a163f7e0858369/output.json",
+  "package_name": "objective_c",
+  "package_root": "/Users/batman/.pub-cache/hosted/pub.dev/objective_c-9.2.2/",
+  "user_defines": {}
+}
