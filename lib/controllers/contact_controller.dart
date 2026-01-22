@@ -40,7 +40,7 @@ class ContactController extends GetxController {
   var loadingMore = false.obs;
 
   DocumentSnapshot? lastVisible;
-  final int pageSize = 9000;
+  final int pageSize = 25; // Start with smaller page size for faster initial load
 
   RxSet<Contact> selectedContacts = <Contact>{}.obs;
   RxBool isSelectionMode = false.obs;
@@ -73,29 +73,34 @@ Future<void> fetchContacts() async {
     if (user == null) throw Exception('User not authenticated');
 
     if (hasInternet) {
-      // 🔹 Online: Fetch from Firestore
+      // 🔹 Online: Fetch ALL contacts from Firestore on app open
       Query<Map<String, dynamic>> query =
-          firestore.collection('contacts').limit(pageSize);
+          firestore.collection('contacts');
 
       final snapshot = await query.get();
       final deletedIds = _getLocallyDeletedIds();
+      
+      // Convert to contacts
       final firestoreContacts = snapshot.docs
-    .map((doc) => Contact.fromMap(doc.id, doc.data()))
-    // 🚫 DO NOT resurrect deleted contacts
-    .where((c) => !deletedIds.contains(c.id))
-    .toList();
+          .map((doc) => Contact.fromMap(doc.id, doc.data()))
+          .where((c) => !deletedIds.contains(c.id))
+          .toList();
 
       // 🔹 Load local contacts
       var localContacts = contactBox.values.toList();
 
       // 🔹 Ensure all contacts have isDeleted field (for backward compatibility)
-      for (int i = 0; i < localContacts.length; i++) {
-        final contact = localContacts[i];
+      // Batch update for faster performance
+      final contactsToUpdate = <String, Contact>{};
+      for (final contact in localContacts) {
         if (contact.isDeleted is! bool) {
           final fixedContact = contact.copyWith(isDeleted: false);
-          await contactBox.put(contact.id, fixedContact);
-          localContacts[i] = fixedContact;
+          contactsToUpdate[contact.id] = fixedContact;
         }
+      }
+      if (contactsToUpdate.isNotEmpty) {
+        await contactBox.putAll(contactsToUpdate);
+        localContacts = contactBox.values.toList();
       }
 
       // 🔹 Keep local-only contacts
@@ -111,29 +116,34 @@ Future<void> fetchContacts() async {
           .toList();
 
       // 🔹 Load deleted contacts from Hive
-      final deletedFromHive = localContacts
+      deletedContacts.value = localContacts
           .where((c) => c.isDeleted)
           .toList();
-      deletedContacts.value = deletedFromHive;
 
-      // 🔹 Update Hive cache
+      // 🔹 Update Hive cache efficiently (batch operation)
+      final cachesToUpdate = <String, Contact>{};
       for (var contact in firestoreContacts) {
-  final local = contactBox.get(contact.id);
-
-  // ❌ Never overwrite a locally deleted contact
-  if (local != null && local.isDeleted) continue;
-
-  await contactBox.put(contact.id, contact);
-}
-
+        final local = contactBox.get(contact.id);
+        // ❌ Never overwrite a locally deleted contact
+        if (local == null || !local.isDeleted) {
+          cachesToUpdate[contact.id] = contact;
+        }
+      }
+      if (cachesToUpdate.isNotEmpty) {
+        await contactBox.putAll(cachesToUpdate);
+      }
 
       // 🔹 Remove deleted Firestore contacts (but keep local deleted ones)
+      final idsToDelete = <String>[];
       for (var localContact in localContacts) {
         if (localContact.isSynced &&
-            !localContact.isDeleted && // Don't delete if marked as deleted locally
+            !localContact.isDeleted &&
             !firestoreContacts.any((f) => f.id == localContact.id)) {
-          await contactBox.delete(localContact.id);
+          idsToDelete.add(localContact.id);
         }
+      }
+      if (idsToDelete.isNotEmpty) {
+        await contactBox.deleteAll(idsToDelete);
       }
 
       contacts.value = activeContacts;
@@ -141,7 +151,7 @@ Future<void> fetchContacts() async {
       // Save pagination state
       if (snapshot.docs.isNotEmpty) lastVisible = snapshot.docs.last;
 
-      Get.snackbar('Online Sync', 'Contacts updated from Firebase.');
+      Get.snackbar('Sync Complete', 'Loaded ${activeContacts.length} contacts from Cloud.');
     } else {
       // 🔹 Offline: load from local Hive
       var allLocal = contactBox.values.toList();
@@ -237,6 +247,41 @@ Future<void> fetchContacts() async {
     loadingMore.value = true;
 
     try {
+      // ✅ Check internet connectivity first
+      final connectivityResult = await Connectivity().checkConnectivity();
+      final hasInternet = connectivityResult != ConnectivityResult.none;
+
+      if (!hasInternet) {
+        // 🔹 Offline mode: Load remaining local contacts from Hive
+        var allLocal = contactBox.values.toList();
+        final activeLocal = allLocal.where((c) => !c.isDeleted).toList();
+        
+        // Show only new contacts not already in the current list
+        final newLocalContacts = activeLocal
+            .where((c) => !contacts.any((existing) => existing.id == c.id))
+            .toList();
+
+        if (newLocalContacts.isNotEmpty) {
+          contacts.addAll(newLocalContacts);
+          filterContacts();
+          Get.snackbar(
+            'Offline Mode',
+            'Loaded ${newLocalContacts.length} more local contacts',
+            snackPosition: SnackPosition.BOTTOM,
+            duration: Duration(seconds: 2),
+          );
+        } else {
+          Get.snackbar(
+            'No More Contacts',
+            'All available local contacts are loaded. Go online to sync more.',
+            snackPosition: SnackPosition.BOTTOM,
+            duration: Duration(seconds: 3),
+          );
+        }
+        return;
+      }
+
+      // 🔹 Online: Fetch from Firestore
       final userId = authController.firebaseUser.value?.uid;
       if (userId == null) throw Exception('User not authenticated');
 
@@ -251,19 +296,37 @@ Future<void> fetchContacts() async {
           .map((doc) => Contact.fromMap(doc.id, doc.data()))
           .toList();
 
-      // Add only new contacts not already in the list
+      // Batch update Hive for better performance
+      final batchUpdates = <String, Contact>{};
       for (var contact in newContacts) {
         if (!contacts.any((c) => c.id == contact.id)) {
           contacts.add(contact);
-          await contactBox.put(contact.id, contact);
+          batchUpdates[contact.id] = contact;
         }
+      }
+      if (batchUpdates.isNotEmpty) {
+        await contactBox.putAll(batchUpdates);
       }
 
       if (snapshot.docs.isNotEmpty) lastVisible = snapshot.docs.last;
 
+      if (newContacts.isEmpty) {
+        Get.snackbar(
+          'No More Contacts',
+          'You have loaded all available contacts.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: Duration(seconds: 2),
+        );
+      }
+
       filterContacts();
     } catch (e) {
-      Get.snackbar('Error', 'Failed to load more contacts: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to load more contacts: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: Duration(seconds: 3),
+      );
     } finally {
       loadingMore.value = false;
     }
@@ -609,13 +672,13 @@ Future<void> unsyncSelectedContacts() async {
         contacts.removeWhere((c) => c.id == contact.id);
         await contactBox.delete(contact.id);
         filterContacts();
-        Get.snackbar('Success', 'Contact deleted from Firebase!');
+        Get.snackbar('Success', 'Contact deleted from Cloud!');
       } catch (e) {
-        Get.snackbar('Error', 'Failed to delete contact from Firebase: $e');
+        Get.snackbar('Error', 'Failed to delete contact from Cloud: $e');
       }
     } else {
       Get.snackbar('Permission Denied',
-          'Only admins can delete contacts from Firebase.');
+          'Only admins can delete contacts from Cloud.');
     }
   }
 

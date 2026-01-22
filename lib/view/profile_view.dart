@@ -39,6 +39,8 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
+    
     setState(() {
       isLoading = true;
     });
@@ -48,9 +50,11 @@ class _ProfileViewState extends State<ProfileView> {
     final userId = authController.firebaseUser.value?.uid;
     if (userId == null) {
       Get.snackbar('Error', 'User not logged in.');
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
       return;
     }
 
@@ -95,9 +99,11 @@ class _ProfileViewState extends State<ProfileView> {
       }
     }
 
-    setState(() {
-      isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   void _editProfile() async {
@@ -127,7 +133,7 @@ class _ProfileViewState extends State<ProfileView> {
       () => AddEditProfileContactPage(contact: contact),
     );
 
-    if (updatedContact != null) {
+    if (updatedContact != null && mounted) {
       setState(() {
         profileData['username'] = updatedContact.name;
         profileData['email'] = updatedContact.email;

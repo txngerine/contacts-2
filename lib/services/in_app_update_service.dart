@@ -34,14 +34,14 @@ class InAppUpdateService extends GetxController {
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: const Text('Later'),
+            child: const Text('Later', style: TextStyle(color: Colors.black)),
           ),
           TextButton(
             onPressed: () {
               _performUpdate(updateInfo);
               Get.back();
             },
-            child: const Text('Update Now'),
+            child: const Text('Update Now', style: TextStyle(color: Colors.blue)),
           ),
         ],
       ),

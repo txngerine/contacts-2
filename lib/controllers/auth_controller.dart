@@ -18,60 +18,36 @@ class AuthController extends GetxController {
   // Phone auth helpers
   String? _verificationId;
   int? _resendToken;
-  bool _navigated = false;
 
   // -------------------- LIFECYCLE --------------------
 
-@override
+  @override
   void onInit() {
     super.onInit();
-    firebaseUser.bindStream(_auth.authStateChanges());
     ever(firebaseUser, _handleAuthChanged);
-  }
-
-
-  Future<void> _onAuthChanged(User? user) async {
-    if (user == null) {
-      Get.offAllNamed('/login');
-    } else {
-      // If the current user is an anonymous (guest) account that was
-      // previously persisted, sign them out so the app shows the login screen.
-      if (user.isAnonymous) {
-        try {
-          await _auth.signOut();
-        } catch (e) {
-          debugPrint('Failed to sign out anonymous user: $e');
-        }
-        Get.offAllNamed('/login');
-        return;
-      }
-
-      await fetchUserData();
-      Get.offAllNamed('/home');
-    }
+    firebaseUser.bindStream(_auth.authStateChanges());
   }
 
   Future<void> _handleAuthChanged(User? user) async {
-    if (_navigated) return;
+    if (user == null) {
+      Get.offAllNamed('/login');
+      return;
+    }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (_navigated) return;
-      _navigated = true;
-
-      if (user == null) {
-        Get.offAllNamed('/login');
-        return;
-      }
-
-      if (user.isAnonymous) {
+    // If the current user is an anonymous (guest) account that was
+    // previously persisted, sign them out so the app shows the login screen.
+    if (user.isAnonymous) {
+      try {
         await _auth.signOut();
-        Get.offAllNamed('/login');
-        return;
+      } catch (e) {
+        debugPrint('Failed to sign out anonymous user: $e');
       }
+      Get.offAllNamed('/login');
+      return;
+    }
 
-      await _loadUserData(user.uid);
-      Get.offAllNamed('/home');
-    });
+    await _loadUserData(user.uid);
+    Get.offAllNamed('/home');
   }
 
   Future<void> _loadUserData(String uid) async {
@@ -83,7 +59,9 @@ class AuthController extends GetxController {
       userRole.value = data['role'] ?? 'user';
       username.value = data['username'] ?? '';
       userEmail.value = data['email'] ?? '';
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Failed to load user data: $e');
+    }
   }
 
   // -------------------- UI HELPERS --------------------
@@ -103,22 +81,6 @@ class AuthController extends GetxController {
   }
 
   // -------------------- USER DATA --------------------
-
-  Future<void> fetchUserData() async {
-    try {
-      final uid = firebaseUser.value!.uid;
-      final doc = await _firestore.collection('users').doc(uid).get();
-
-      if (!doc.exists) return;
-
-      final data = doc.data()!;
-      userRole.value = data['role'] ?? 'user';
-      username.value = data['username'] ?? 'Guest';
-      userEmail.value = data['email'] ?? '';
-    } catch (e) {
-      _showSnackbar('Failed to load user data');
-    }
-  }
 
   // -------------------- AUTH --------------------
 

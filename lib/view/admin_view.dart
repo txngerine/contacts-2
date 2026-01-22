@@ -12,68 +12,63 @@ class AdminView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Obx(() {
-        return FutureBuilder(
-          future: authController.fetchUserData(),  // Ensure the user role is fetched first
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+        // Only allow admin users to access this view
+        if (!authController.isAdmin) {
+          return Center(child: Text('Unauthorized: admin access required.'));
+        }
+
+        return StreamBuilder(
+          stream: FirebaseFirestore.instance.collection('users').snapshots(),
+          builder: (context, AsyncSnapshot<QuerySnapshot> usersSnapshot) {
+            if (usersSnapshot.connectionState == ConnectionState.waiting) {
               return Center(child: CircularProgressIndicator());
             }
 
-            // Only allow admin users to subscribe to the users collection.
-            if (!authController.isAdmin) {
-              return Center(child: Text('Unauthorized: admin access required.'));
+            if (usersSnapshot.hasError) {
+              return Center(child: Text('Error loading users: ${usersSnapshot.error}'));
             }
 
-            return StreamBuilder(
-              stream: FirebaseFirestore.instance.collection('users').snapshots(),
-              builder: (context, AsyncSnapshot<QuerySnapshot> usersSnapshot) {
-                if (usersSnapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
-                }
+            if (!usersSnapshot.hasData || usersSnapshot.data!.docs.isEmpty) {
+              return Center(child: Text('No users found.'));
+            }
 
-                if (!usersSnapshot.hasData || usersSnapshot.data!.docs.isEmpty) {
-                  return Center(child: Text('No users found.'));
-                }
+            // Filter users with the role "user"
+            final users = usersSnapshot.data!.docs.where((user) {
+              return user['role'] == 'user';
+            }).toList();
 
-                // Filter users with the role "user"
-                final users = usersSnapshot.data!.docs.where((user) {
-                  return user['role'] == 'user';
-                }).toList();
+            if (users.isEmpty) {
+              return Center(child: Text('No users with the role "user" found.'));
+            }
 
-                if (users.isEmpty) {
-                  return Center(child: Text('No users with the role "user" found.'));
-                }
+            return ListView.builder(
+              itemCount: users.length,
+              itemBuilder: (context, index) {
+                final user = users[index];
+                final userEmail = user['email'] ?? 'No email';
+                final userRole = user['role'] ?? 'user';
 
-                return ListView.builder(
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    final userEmail = user['email'] ?? 'No email';
-                    final userRole = user['role'] ?? 'user';
-
-                    return ListTile(
-                      title: Text(userEmail),
-                      subtitle: Text('Role: $userRole'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (authController.isAdmin)
-                            IconButton(
-                              icon: Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () {
-                                _showRoleDialog(context, user.id, userEmail);
-                              },
-                            ),
-                          IconButton(
-                            icon: Icon(Icons.delete, color: Colors.red),
-                            onPressed: () {
-                              _deleteUser(user.id);
-                            },
-                          ),
-                        ],
+                return ListTile(
+                  title: Text(userEmail),
+                  subtitle: Text('Role: $userRole'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (authController.isAdmin)
+                        IconButton(
+                          icon: Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () {
+                            _showRoleDialog(context, user.id, userEmail);
+                          },
+                        ),
+                      IconButton(
+                        icon: Icon(Icons.delete, color: Colors.red),
+                        onPressed: () {
+                          _deleteUser(user.id);
+                        },
                       ),
-                    );
-                  },
+                    ],
+                  ),
                 );
               },
             );
