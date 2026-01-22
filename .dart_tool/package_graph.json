@@ -5,7 +5,7 @@
   "packages": [
     {
       "name": "korlinks",
-      "version": "1.0.3+46",
+      "version": "1.0.3+47",
       "dependencies": [
         "alphabet_list_view",
         "cloud_firestore",
