@@ -30,7 +30,7 @@ class _SplashScreenState extends State<SplashScreen> {
       final result = await InternetAddress.lookup('google.com');
       if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
         // Check if the user is logged in
-        final isLoggedIn = authController.userRole.value.isNotEmpty;
+        final isLoggedIn = authController.firebaseUser.value != null;
 
         // Navigate to the appropriate screen
         if (isLoggedIn) {

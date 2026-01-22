@@ -52,6 +52,13 @@ RxList<Contact> deletedContacts = <Contact>[].obs;
     contactBox = Hive.box<Contact>('contacts');
     fetchContacts();
   }
+  List<String> _getLocallyDeletedIds() {
+    return contactBox.values
+        .where((c) => c.isDeleted)
+        .map((c) => c.id)
+        .toList();
+  }
+
 
 Future<void> fetchContacts() async {
   if (isFetching.value) return;
@@ -71,9 +78,12 @@ Future<void> fetchContacts() async {
           firestore.collection('contacts').limit(pageSize);
 
       final snapshot = await query.get();
+      final deletedIds = _getLocallyDeletedIds();
       final firestoreContacts = snapshot.docs
-          .map((doc) => Contact.fromMap(doc.id, doc.data()))
-          .toList();
+    .map((doc) => Contact.fromMap(doc.id, doc.data()))
+    // 🚫 DO NOT resurrect deleted contacts
+    .where((c) => !deletedIds.contains(c.id))
+    .toList();
 
       // 🔹 Load local contacts
       var localContacts = contactBox.values.toList();
@@ -108,8 +118,14 @@ Future<void> fetchContacts() async {
 
       // 🔹 Update Hive cache
       for (var contact in firestoreContacts) {
-        await contactBox.put(contact.id, contact);
-      }
+  final local = contactBox.get(contact.id);
+
+  // ❌ Never overwrite a locally deleted contact
+  if (local != null && local.isDeleted) continue;
+
+  await contactBox.put(contact.id, contact);
+}
+
 
       // 🔹 Remove deleted Firestore contacts (but keep local deleted ones)
       for (var localContact in localContacts) {

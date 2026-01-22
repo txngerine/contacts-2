@@ -1,77 +1,69 @@
-// import 'package:in_app_update/in_app_update.dart';
-// import 'package:get/get.dart';
-// import 'package:flutter/material.dart';
+// class AuthController extends GetxController {
+//   final FirebaseAuth _auth = FirebaseAuth.instance;
+//   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-// class UpdateService extends GetxService {
-//   static const updateCheckInterval = Duration(hours: 24);
-//   DateTime? lastUpdateCheck;
+//   final Rxn<User> firebaseUser = Rxn<User>();
+//   final RxString userRole = ''.obs;
+//   final RxString username = ''.obs;
+//   final RxString userEmail = ''.obs;
 
-//   Future<void> checkForUpdate({bool isForce = false}) async {
-//     try {
-//       final now = DateTime.now();
-      
-//       // Skip if we checked recently and this isn't a forced check
-//       if (!isForce && 
-//           lastUpdateCheck != null && 
-//           now.difference(lastUpdateCheck!).inHours < 24) {
+//   bool _navigated = false; // ⛔ prevents double navigation
+
+//   @override
+//   void onInit() {
+//     super.onInit();
+//     firebaseUser.bindStream(_auth.authStateChanges());
+//     ever(firebaseUser, _handleAuthChanged);
+//   }
+
+//   Future<void> _handleAuthChanged(User? user) async {
+//     if (_navigated) return;
+
+//     WidgetsBinding.instance.addPostFrameCallback((_) async {
+//       if (_navigated) return;
+//       _navigated = true;
+
+//       if (user == null) {
+//         Get.offAllNamed('/login');
 //         return;
 //       }
 
-//       lastUpdateCheck = now;
-
-//       // Check for available updates
-//       final updateInfo = await InAppUpdate.checkForUpdate();
-      
-//       if (updateInfo.updateAvailability == UpdateAvailability.updateAvailable) {
-//         if (updateInfo.immediateUpdateAllowed) {
-//           // Force update required
-//           await InAppUpdate.performImmediateUpdate();
-//         } else if (updateInfo.flexibleUpdateAllowed) {
-//           // Optional update - show snackbar
-//           _showUpdateDialog(isRequired: false);
-//         }
+//       if (user.isAnonymous) {
+//         await _auth.signOut();
+//         Get.offAllNamed('/login');
+//         return;
 //       }
-//     } catch (e) {
-//       print('Update check error: $e');
-//     }
+
+//       await _loadUserData(user.uid);
+//       Get.offAllNamed('/home');
+//     });
 //   }
 
-//   void _showUpdateDialog({required bool isRequired}) {
-//     Get.dialog(
-//       AlertDialog(
-//         title: const Text('Update Available'),
-//         content: const Text(
-//           'A new version of KorLinks is available. Please update to the latest version for the best experience.',
-//         ),
-//         actions: [
-//           if (!isRequired)
-//             TextButton(
-//               onPressed: () => Get.back(),
-//               child: const Text('Later'),
-//             ),
-//           TextButton(
-//             onPressed: () async {
-//               Get.back();
-//               try {
-//                 await InAppUpdate.startFlexibleUpdate();
-//               } catch (e) {
-//                 print('Update error: $e');
-//               }
-//             },
-//             child: const Text('Update'),
-//           ),
-//         ],
-//       ),
-//       barrierDismissible: !isRequired,
+//   Future<void> _loadUserData(String uid) async {
+//     try {
+//       final doc = await _firestore.collection('users').doc(uid).get();
+//       if (!doc.exists) return;
+
+//       final data = doc.data()!;
+//       userRole.value = data['role'] ?? 'user';
+//       username.value = data['username'] ?? '';
+//       userEmail.value = data['email'] ?? '';
+//     } catch (_) {}
+//   }
+
+//   // ---------------- AUTH ----------------
+
+//   Future<void> login(String email, String password) async {
+//     await _auth.signInWithEmailAndPassword(
+//       email: email,
+//       password: password,
 //     );
 //   }
 
-//   // Complete flexible update if pending
-//   Future<void> completeFlexibleUpdate() async {
-//     try {
-//       await InAppUpdate.completeFlexibleUpdate();
-//     } catch (e) {
-//       print('Complete update error: $e');
-//     }
+//   Future<void> logout() async {
+//     _navigated = false; // allow navigation again
+//     await _auth.signOut();
 //   }
+
+//   bool get isAdmin => userRole.value == 'admin';
 // }

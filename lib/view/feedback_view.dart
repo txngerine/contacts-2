@@ -1,4 +1,4 @@
-// ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables
+// ignore_for_file: prefer_const_constructors
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -12,14 +12,16 @@ class FeedbackView extends StatefulWidget {
 }
 
 class _FeedbackViewState extends State<FeedbackView> {
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _subjectController = TextEditingController();
-  final TextEditingController _messageController = TextEditingController();
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>();
+
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _subjectController = TextEditingController();
+  final _messageController = TextEditingController();
+
   bool _isLoading = false;
 
-  static const String FEEDBACK_EMAIL = 'support@99letters.com';
+  static const String feedbackEmail = 'korlinks9@gmail.com';
 
   @override
   void dispose() {
@@ -31,17 +33,12 @@ class _FeedbackViewState extends State<FeedbackView> {
   }
 
   Future<void> _sendFeedback() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
-    try {
-      final String subject = _subjectController.text.trim();
-      final String body = '''
+    final subject = _subjectController.text.trim();
+    final body = '''
 Name: ${_nameController.text.trim()}
 Email: ${_emailController.text.trim()}
 
@@ -49,18 +46,24 @@ Message:
 ${_messageController.text.trim()}
 ''';
 
-      final Uri emailUri = Uri(
-        scheme: 'mailto',
-        path: FEEDBACK_EMAIL,
-        queryParameters: {
-          'subject': subject,
-          'body': body,
-        },
+    final uri = Uri(
+      scheme: 'mailto',
+      path: feedbackEmail,
+      queryParameters: {
+        'subject': subject,
+        'body': body,
+      },
+    );
+
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
       );
 
-      if (await canLaunchUrl(emailUri)) {
-        await launchUrl(emailUri);
-        
+      if (!mounted) return;
+
+      if (launched) {
         _nameController.clear();
         _emailController.clear();
         _subjectController.clear();
@@ -68,35 +71,28 @@ ${_messageController.text.trim()}
 
         Get.snackbar(
           'Success',
-          'Feedback email opened. Please send it to help us improve!',
+          'Email app opened. Please send your feedback.',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.green,
           colorText: Colors.white,
-          duration: Duration(seconds: 3),
         );
       } else {
-        Get.snackbar(
-          'Error',
-          'Could not open email client. Please try again.',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-          duration: Duration(seconds: 3),
-        );
+        throw 'Could not open email app';
       }
     } catch (e) {
+      if (!mounted) return;
+
       Get.snackbar(
         'Error',
-        'An error occurred: $e',
+        'Unable to open email client',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        duration: Duration(seconds: 3),
       );
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -105,224 +101,149 @@ ${_messageController.text.trim()}
     return Scaffold(
       appBar: AppBar(
         title: Text('Send Feedback'),
-        elevation: 0,
       ),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'We\'d love to hear from you!',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Help us improve by sharing your feedback, suggestions, or reporting issues.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                ),
-                SizedBox(height: 24),
+        padding: EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'We’d love to hear from you!',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Share feedback, suggestions, or report issues.',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+              SizedBox(height: 24),
 
-                // Name Field
-                Text(
-                  'Full Name',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                SizedBox(height: 8),
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    hintText: 'Enter your full name',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your name';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 16),
+              _label('Full Name'),
+              _field(
+                controller: _nameController,
+                hint: 'Enter your full name',
+                validator: (v) =>
+                    v!.trim().isEmpty ? 'Name is required' : null,
+              ),
 
-                // Email Field
-                Text(
-                  'Email Address',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                SizedBox(height: 8),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    hintText: 'Enter your email address',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your email';
-                    }
-                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                      return 'Please enter a valid email address';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 16),
+              _label('Email Address'),
+              _field(
+                controller: _emailController,
+                hint: 'Enter your email',
+                keyboard: TextInputType.emailAddress,
+                validator: (v) {
+                  if (v!.isEmpty) return 'Email is required';
+                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v)) {
+                    return 'Invalid email';
+                  }
+                  return null;
+                },
+              ),
 
-                // Subject Field
-                Text(
-                  'Subject',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                SizedBox(height: 8),
-                TextFormField(
-                  controller: _subjectController,
-                  decoration: InputDecoration(
-                    hintText: 'e.g., Feature Request, Bug Report, Suggestion',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter a subject';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 16),
+              _label('Subject'),
+              _field(
+                controller: _subjectController,
+                hint: 'Bug report, Feature request...',
+                validator: (v) =>
+                    v!.trim().isEmpty ? 'Subject is required' : null,
+              ),
 
-                // Message Field
-                Text(
-                  'Message',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                SizedBox(height: 8),
-                TextFormField(
-                  controller: _messageController,
-                  maxLines: 6,
-                  minLines: 6,
-                  decoration: InputDecoration(
-                    hintText:
-                        'Please share your feedback, suggestions, or describe any issues you\'ve encountered...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your message';
-                    }
-                    if (value.trim().length < 10) {
-                      return 'Message should be at least 10 characters';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 24),
+              _label('Message'),
+              _field(
+                controller: _messageController,
+                hint: 'Write your feedback here...',
+                maxLines: 6,
+                validator: (v) {
+                  if (v!.trim().isEmpty) return 'Message required';
+                  if (v.length < 10) return 'Minimum 10 characters';
+                  return null;
+                },
+              ),
 
-                // Send Button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _sendFeedback,
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(vertical: 14),
-                      backgroundColor: Theme.of(context).primaryColor,
-                      disabledBackgroundColor: Colors.grey[300],
-                    ),
-                    child: _isLoading
-                        ? SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          )
-                        : Text(
-                            'Send Feedback',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
+              SizedBox(height: 24),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _sendFeedback,
+                  child: _isLoading
+                      ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
                           ),
-                  ),
-                ),
-                SizedBox(height: 16),
-
-                // Contact Info
-                Container(
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.blue[200]!,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        color: Colors.blue[700],
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Your feedback will be sent to: support@99letters.com',
+                        )
+                      : Text(
+                          'Send Feedback',
                           style: TextStyle(
-                            color: Colors.blue[700],
-                            fontSize: 12,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
                 ),
-              ],
-            ),
+              ),
+
+              SizedBox(height: 16),
+
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Feedback will be sent to $feedbackEmail',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 8, top: 16),
+        child: Text(
+          text,
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+      );
+
+  Widget _field({
+    required TextEditingController controller,
+    required String hint,
+    String? Function(String?)? validator,
+    int maxLines = 1,
+    TextInputType? keyboard,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboard,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        hintText: hint,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      validator: validator,
     );
   }
 }

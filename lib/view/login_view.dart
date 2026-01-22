@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/auth_controller.dart';
-import 'forgot_password_view.dart';
 
 class LoginView extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();

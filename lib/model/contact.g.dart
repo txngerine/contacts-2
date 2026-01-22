@@ -35,7 +35,7 @@ class ContactAdapter extends TypeAdapter<Contact> {
       website: fields[16] as String?,
       isSynced: fields[15] as bool,
       importedFromCsv: fields[17] as bool,
-      isDeleted: fields[18] as bool? ?? false,
+      isDeleted: fields[18] as bool,
     );
   }
 

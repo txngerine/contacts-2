@@ -29,7 +29,7 @@ void main() async {
   Hive.registerAdapter(ContactAdapter());
   Hive.registerAdapter(GroupAdapter());
   await Hive.openBox<Contact>('contacts');
-  Get.put(AuthController());
+  Get.put(AuthController(), permanent: true);
   Get.put(HomeController());
   Get.put(ContactController());
   Get.put(GroupController());

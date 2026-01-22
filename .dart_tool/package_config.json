@@ -129,7 +129,7 @@
     },
     {
       "name": "code_assets",
-      "rootUri": "file:///C:/Users/Lenovo/AppData/Local/Pub/Cache/hosted/pub.dev/code_assets-0.19.10",
+      "rootUri": "file:///C:/Users/Lenovo/AppData/Local/Pub/Cache/hosted/pub.dev/code_assets-1.0.0",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
@@ -375,7 +375,7 @@
     },
     {
       "name": "hooks",
-      "rootUri": "file:///C:/Users/Lenovo/AppData/Local/Pub/Cache/hosted/pub.dev/hooks-0.20.5",
+      "rootUri": "file:///C:/Users/Lenovo/AppData/Local/Pub/Cache/hosted/pub.dev/hooks-1.0.0",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
@@ -489,7 +489,7 @@
     },
     {
       "name": "native_toolchain_c",
-      "rootUri": "file:///C:/Users/Lenovo/AppData/Local/Pub/Cache/hosted/pub.dev/native_toolchain_c-0.17.2",
+      "rootUri": "file:///C:/Users/Lenovo/AppData/Local/Pub/Cache/hosted/pub.dev/native_toolchain_c-0.17.4",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
@@ -501,7 +501,7 @@
     },
     {
       "name": "objective_c",
-      "rootUri": "file:///C:/Users/Lenovo/AppData/Local/Pub/Cache/hosted/pub.dev/objective_c-9.2.2",
+      "rootUri": "file:///C:/Users/Lenovo/AppData/Local/Pub/Cache/hosted/pub.dev/objective_c-9.2.3",
       "packageUri": "lib/",
       "languageVersion": "3.10"
     },
