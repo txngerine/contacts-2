@@ -696,13 +696,13 @@ Future<void> unsyncSelectedContacts() async {
             updatedContact;
         await contactBox.put(updatedContact.id, updatedContact);
         filterContacts();
-        Get.snackbar('Success', 'Contact updated in Firebase as admin!');
+        Get.snackbar('Success', 'Contact updated in Cloud as admin!');
       } catch (e) {
-        Get.snackbar('Error', 'Failed to update contact in Firebase: $e');
+        Get.snackbar('Error', 'Failed to update contact in Cloud: $e');
       }
     } else {
       Get.snackbar(
-          'Permission Denied', 'Only admins can update contacts in Firebase.');
+          'Permission Denied', 'Only admins can update contacts in Cloud.');
     }
   }
 
